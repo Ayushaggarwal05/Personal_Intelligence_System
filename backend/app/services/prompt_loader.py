@@ -15,7 +15,7 @@ class PromptLoaderService:
         # Expected variables registry for validation
         self._registry: Dict[str, List[str]] = {
             "chat/system_prompt.txt": ["project_context"],
-            "interview/generate_q.txt": ["project_name", "framework", "database_type", "symbols"],
+            "interview/generate_q.txt": ["project_name", "framework", "database_type", "symbols", "git_changes"],
             "interview/score_answer.txt": ["framework", "database_type", "symbols", "question", "user_answer"],
             "planner/plan.txt": ["user_intent"]
         }
@@ -90,6 +90,8 @@ class PromptLoaderService:
                 "Project database: {database_type}\n"
                 "Indexed code structures:\n"
                 "{symbols}\n"
+                "Recent Git changes:\n"
+                "{git_changes}\n"
                 "Return a JSON format containing keys 'question', 'focus_area', 'type'.\n"
             )
         elif key == "interview/score_answer.txt":

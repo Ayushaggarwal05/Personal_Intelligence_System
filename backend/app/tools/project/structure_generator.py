@@ -109,4 +109,32 @@ class StructureGenerator:
             "edges": edges
         }
 
+    def generate_unicode_tree_string(self, project_path: str, max_depth: int = 4) -> str:
+        """Generates a beautiful Unicode text tree representing the project files hierarchy."""
+        tree_dict = self.generate_folder_tree(project_path)
+        if not tree_dict:
+            return ""
+            
+        lines = [tree_dict["name"] + "/"]
+        
+        def format_node(node: Dict[str, Any], depth: int = 0, prefix: str = ""):
+            if depth >= max_depth:
+                return
+            children = node.get("children", [])
+            # Sort: directories first, then files
+            children.sort(key=lambda x: (0 if x["type"] == "directory" else 1, x["name"].lower()))
+            
+            for idx, child in enumerate(children):
+                is_last = (idx == len(children) - 1)
+                connector = "└── " if is_last else "├── "
+                suffix = "/" if child["type"] == "directory" else ""
+                lines.append(f"{prefix}{connector}{child['name']}{suffix}")
+                
+                if child["type"] == "directory":
+                    new_prefix = prefix + ("    " if is_last else "│   ")
+                    format_node(child, depth + 1, new_prefix)
+                    
+        format_node(tree_dict)
+        return "\n".join(lines)
+
 structure_generator = StructureGenerator()

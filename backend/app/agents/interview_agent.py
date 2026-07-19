@@ -6,12 +6,14 @@ from app.database.models.symbol import Symbol
 from app.core.logging import logger
 from app.core.exceptions import PEISException
 
+from app.tools.git.history import get_git_diff_patch
+
 class InterviewAgent(BaseAgent):
     def __init__(self):
         super().__init__(name="InterviewAgent", category="interview", prompt_file="generate_q.txt")
 
     def generate_question(self, context: dict) -> dict:
-        """Generates a project-specific interview question based on the indexed symbols tree."""
+        """Generates a project-specific interview question based on the indexed symbols tree and git updates."""
         db = context["db"]
         project_path = context["project_path"]
 
@@ -31,12 +33,16 @@ class InterviewAgent(BaseAgent):
         else:
             symbols_summary = "No files or functions indexed yet. Ask general technical questions about building projects."
 
+        # Fetch recent git diff modifications
+        git_changes = get_git_diff_patch(project.path, count=1)
+
         # 2. Setup Prompt Variables
         variables = {
             "project_name": project.name,
             "framework": project.framework or "Python/FastAPI",
             "database_type": project.database_type or "SQLite",
-            "symbols": symbols_summary
+            "symbols": symbols_summary,
+            "git_changes": git_changes
         }
 
         logger.info(f"[InterviewAgent] Generating mock question for project: {project.name}")

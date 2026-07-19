@@ -21,9 +21,11 @@ def split_text_overlapping(text: str, chunk_size: int = 800, overlap: int = 100)
         
     return chunks
 
+from app.tools.filesystem.read_file import is_binary_file
+
 def chunk_file_for_indexing(file_path: str, project_id: str, file_id: str) -> List[Dict[str, Any]]:
     """Reads a file, chunk splits its text, and packages it in LanceDB document schema structures."""
-    if not os.path.exists(file_path):
+    if not os.path.exists(file_path) or is_binary_file(file_path):
         return []
 
     _, ext = os.path.splitext(file_path)
