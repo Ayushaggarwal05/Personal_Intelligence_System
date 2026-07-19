@@ -9,6 +9,7 @@ from app.api.memory import router as memory_router
 from app.api.system import router as system_router
 from app.api.settings_api import router as settings_router
 from app.api.prompts import router as prompts_router
+from app.api.review import router as review_router
 from app.core.websocket_manager import websocket_manager
 from app.core.logging import logger
 
@@ -25,6 +26,7 @@ api_router.include_router(memory_router)
 api_router.include_router(system_router)
 api_router.include_router(settings_router)
 api_router.include_router(prompts_router)
+api_router.include_router(review_router)
 
 # WebSocket connection route
 @api_router.websocket("/ws")
