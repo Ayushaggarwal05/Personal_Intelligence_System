@@ -38,12 +38,12 @@ class BaseAgent(BaseAgentInterface):
             logger.error(f"Error formatting prompt template: {e}")
             return self.system_prompt_template
 
-    def call_llm(self, prompt: str, system_variables: Optional[Dict[str, Any]] = None, json_format: bool = False) -> str:
+    def call_llm(self, prompt: str, system_variables: Optional[Dict[str, Any]] = None, json_format: bool = False, provider: Optional[str] = None) -> str:
         """Executes LLM generation pipeline using ModelRouter, capturing logs and durations."""
         logger.info(f"[{self.name}] Initiating model generation request...")
         system_prompt = self.get_system_prompt(system_variables)
         
-        response = run_llm_generation(prompt=prompt, system_prompt=system_prompt, json_format=json_format)
+        response = run_llm_generation(prompt=prompt, system_prompt=system_prompt, json_format=json_format, provider=provider)
         logger.info(f"[{self.name}] Model generation completed successfully.")
         return response
 

@@ -1,5 +1,6 @@
 from app.agents.base_agent import BaseAgent
 from typing import Dict, Any
+from app.core.settings import settings
 
 class DiagramAgent(BaseAgent):
     """Diagram Agent that reasons over user diagram requests and compiles custom Mermaid.js markups."""
@@ -23,10 +24,17 @@ class DiagramAgent(BaseAgent):
         
         formatted_prompt = prompt.replace("{user_request}", user_request)
         
+        provider = None
+        if settings.GEMINI_API_KEY:
+            provider = "gemini"
+        elif settings.GROQ_API_KEY:
+            provider = "groq"
+            
         try:
             markup = self.call_llm(
                 prompt=formatted_prompt,
-                system_variables=variables
+                system_variables=variables,
+                provider=provider
             )
             # Remove any trailing code block formatting if returned
             clean_markup = markup.strip()

@@ -25,9 +25,8 @@ class Settings(BaseSettings):
     
     GROQ_API_KEY: Optional[str] = None
     GEMINI_API_KEY: Optional[str] = None
-    OPENROUTER_API_KEY: Optional[str] = None
     
-    # Active LLM Provider: "local" or "groq" or "gemini" or "openrouter"
+    # Active LLM Provider: "local" or "groq" or "gemini"
     ACTIVE_LLM_PROVIDER: str = "local"
     
     # Embeddings Configurations

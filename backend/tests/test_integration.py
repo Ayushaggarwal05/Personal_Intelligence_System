@@ -63,14 +63,15 @@ def checkout_orders():
         print("Prompts Registry API PASSED.")
 
         # 4. Test Settings API (/api/settings)
-        print("\nVerifying GET /api/settings & POST /api/settings/provider...")
+        print("\nVerifying GET /api/settings & POST /api/settings/keys...")
         set_res = client.get("/api/settings")
         assert set_res.status_code == 200
         assert set_res.json()["project_name"] == "Personal Engineering Intelligence System"
         
-        prov_res = client.post("/api/settings/provider", json={"provider": "local"})
+        prov_res = client.post("/api/settings/keys", json={"gemini_key": "AIzaSyTestKey", "groq_key": "gsk_TestKey"})
         assert prov_res.status_code == 200
-        assert prov_res.json()["active_llm_provider"] == "local"
+        assert prov_res.json()["has_gemini_key"] is True
+        assert prov_res.json()["has_groq_key"] is True
         print("Settings configurations APIs PASSED.")
 
         # 5. Test Diagram APIs (/api/diagrams)

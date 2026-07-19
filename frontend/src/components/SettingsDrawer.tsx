@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Cpu, BrainCircuit, ShieldAlert } from 'lucide-react';
+import { Settings, ShieldAlert, Key, Check } from 'lucide-react';
 
 interface SettingsDrawerProps {
   projectId: string | null;
 }
 
 export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => {
-  const [provider, setProvider] = useState('local');
+  const [hasGeminiKey, setHasGeminiKey] = useState(false);
+  const [hasGroqKey, setHasGroqKey] = useState(false);
+  const [geminiInput, setGeminiInput] = useState('');
+  const [groqInput, setGroqInput] = useState('');
   const [weakTopics, setWeakTopics] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch('http://localhost:8000/api/settings');
-        if (res.ok) {
-          const data = await res.json();
-          setProvider(data.active_llm_provider || 'local');
-        }
-      } catch (err) {
-        console.error(err);
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/settings');
+      if (res.ok) {
+        const data = await res.json();
+        setHasGeminiKey(data.has_gemini_key);
+        setHasGroqKey(data.has_groq_key);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
+  useEffect(() => {
     fetchSettings();
   }, []);
 
@@ -44,20 +48,30 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
     fetchWeakTopics();
   }, [projectId]);
 
-  const handleProviderChange = async (newProv: string) => {
-    setProvider(newProv);
+  const handleSaveKeys = async (e: React.FormEvent) => {
+    e.preventDefault();
     setMessage(null);
     try {
-      const res = await fetch('http://localhost:8000/api/settings/provider', {
+      const res = await fetch('http://localhost:8000/api/settings/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider: newProv }),
+        body: JSON.stringify({
+          gemini_key: geminiInput ? geminiInput.trim() : undefined,
+          groq_key: groqInput ? groqInput.trim() : undefined,
+        }),
       });
       if (res.ok) {
-        setMessage(`LLM Provider switched to: ${newProv}`);
+        const data = await res.json();
+        setHasGeminiKey(data.has_gemini_key);
+        setHasGroqKey(data.has_groq_key);
+        setGeminiInput('');
+        setGroqInput('');
+        setMessage('Credentials successfully saved to local config!');
+      } else {
+        setMessage('Failed to register credentials.');
       }
     } catch (err) {
-      console.error(err);
+      setMessage('Backend configuration service offline.');
     }
   };
 
@@ -68,35 +82,65 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
         System Configurations
       </h3>
 
-      {/* Model Provider Toggle */}
-      <div>
-        <span className="text-[10px] text-gray-400 block mb-2 font-mono uppercase">
-          ACTIVE LLM REASONING ENGINE
-        </span>
-        <div className="grid grid-cols-2 gap-1.5">
-          {[
-            { id: 'local', label: 'Local Ollama', icon: <Cpu size={12} /> },
-            { id: 'gemini', label: 'Gemini Cloud', icon: <BrainCircuit size={12} /> },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleProviderChange(item.id)}
-              className={`px-2 py-1.5 text-[11px] rounded border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                provider === item.id
-                  ? 'glow-btn text-white'
-                  : 'border-white/10 bg-white/2 text-gray-400 hover:text-white'
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
+      {/* API Key Configuration Form */}
+      <form onSubmit={handleSaveKeys} className="flex flex-col gap-3">
+        <div>
+          <label className="text-[10px] text-gray-400 block mb-1 font-mono uppercase">
+            GOOGLE GEMINI API KEY
+          </label>
+          <div className="relative">
+            <input
+              type="password"
+              placeholder={hasGeminiKey ? "••••••••••••••••••••" : "Configure Gemini key..."}
+              value={geminiInput}
+              onChange={(e) => setGeminiInput(e.target.value)}
+              className="w-full bg-black/20 border border-white/10 rounded-md py-1.5 px-2.5 text-xs text-white outline-none focus:border-accentPurple/50 transition-all font-mono"
+            />
+            {hasGeminiKey && (
+              <span className="absolute right-2.5 top-2 flex items-center gap-1 text-[9px] text-emerald-400 font-mono">
+                <Check size={10} /> Active
+              </span>
+            )}
+          </div>
         </div>
-        {message && <span className="text-accentCyan text-[10px] mt-1.5 block font-mono">{message}</span>}
-      </div>
+
+        <div>
+          <label className="text-[10px] text-gray-400 block mb-1 font-mono uppercase">
+            GROQ API KEY
+          </label>
+          <div className="relative">
+            <input
+              type="password"
+              placeholder={hasGroqKey ? "••••••••••••••••••••" : "Configure Groq key..."}
+              value={groqInput}
+              onChange={(e) => setGroqInput(e.target.value)}
+              className="w-full bg-black/20 border border-white/10 rounded-md py-1.5 px-2.5 text-xs text-white outline-none focus:border-accentPurple/50 transition-all font-mono"
+            />
+            {hasGroqKey && (
+              <span className="absolute right-2.5 top-2 flex items-center gap-1 text-[9px] text-emerald-400 font-mono">
+                <Check size={10} /> Active
+              </span>
+            )}
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          className="glow-btn py-2 text-xs w-full flex items-center justify-center gap-1.5 cursor-pointer font-outfit"
+        >
+          <Key size={12} />
+          Save AI Keys
+        </button>
+
+        {message && (
+          <span className="text-accentCyan text-[10px] block font-mono text-center mt-1">
+            {message}
+          </span>
+        )}
+      </form>
 
       {/* Weak Areas List */}
-      <div className="mt-2">
+      <div className="mt-2 border-t border-white/10 pt-4">
         <span className="text-[10px] text-gray-400 block mb-2 font-mono uppercase">
           TECHNICAL WEAK TOPICS HISTORY
         </span>

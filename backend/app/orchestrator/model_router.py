@@ -48,9 +48,12 @@ class ModelRouter:
             pass
         return False
 
-    def generate(self, prompt: str, system_prompt: Optional[str] = None, json_format: bool = False) -> str:
+    def generate(self, prompt: str, system_prompt: Optional[str] = None, json_format: bool = False, provider: Optional[str] = None) -> str:
         """Executes prompt inference routing between local and cloud providers with auto-fallback policies."""
-        provider = settings.ACTIVE_LLM_PROVIDER.lower()
+        if not provider:
+            provider = settings.ACTIVE_LLM_PROVIDER.lower()
+        else:
+            provider = provider.lower()
         
         # Auto fallback check if provider is set to local but Ollama is offline
         if provider == "local" and not self.check_local_ollama_health():
@@ -61,9 +64,6 @@ class ModelRouter:
             elif settings.GROQ_API_KEY:
                 logger.info("[ModelRouter] Falling back to Groq Cloud provider.")
                 provider = "groq"
-            elif settings.OPENROUTER_API_KEY:
-                logger.info("[ModelRouter] Falling back to OpenRouter Cloud provider.")
-                provider = "openrouter"
             else:
                 logger.error("[ModelRouter] All providers offline. Routing raw Ollama request...")
 
@@ -138,34 +138,6 @@ class ModelRouter:
                 logger.error(f"[ModelRouter] Groq API failed: {e}")
                 return self._get_fallback_mock_response(prompt, json_format)
 
-        # 4. OPENROUTER CLOUD ROUTING
-        elif provider == "openrouter":
-            api_key = settings.OPENROUTER_API_KEY or "MOCK_KEY"
-            url = "https://openrouter.ai/api/v1/chat/completions"
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}"
-            }
-            messages = []
-            if system_prompt:
-                messages.append({"role": "system", "content": system_prompt})
-            messages.append({"role": "user", "content": prompt})
-
-            payload = {
-                "model": "google/gemini-2.5-flash",
-                "messages": messages
-            }
-            if json_format:
-                payload["response_format"] = {"type": "json_object"}
-
-            try:
-                raw_res = make_post_request(url, headers, payload)
-                data = json.loads(raw_res)
-                return data["choices"][0]["message"]["content"]
-            except Exception as e:
-                logger.error(f"[ModelRouter] OpenRouter API failed: {e}")
-                return self._get_fallback_mock_response(prompt, json_format)
-
         return self._get_fallback_mock_response(prompt, json_format)
 
     def _get_fallback_mock_response(self, prompt: str, json_format: bool) -> str:
@@ -195,6 +167,6 @@ class ModelRouter:
 
 model_router = ModelRouter()
 
-def run_llm_generation(prompt: str, system_prompt: Optional[str] = None, json_format: bool = False) -> str:
+def run_llm_generation(prompt: str, system_prompt: Optional[str] = None, json_format: bool = False, provider: Optional[str] = None) -> str:
     """Wrapper function pointing to global model_router instance to preserve backwards compatibility."""
-    return model_router.generate(prompt, system_prompt, json_format)
+    return model_router.generate(prompt, system_prompt, json_format, provider)
