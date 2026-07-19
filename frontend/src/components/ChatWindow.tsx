@@ -19,7 +19,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Auto-scroll to bottom of chats
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -28,7 +27,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
     scrollToBottom();
   }, [messages]);
 
-  // Establish WebSocket tunnel to receive background system signals
   useEffect(() => {
     const ws = new WebSocket('ws://localhost:8000/api/ws');
     wsRef.current = ws;
@@ -37,10 +35,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
       try {
         const payload = JSON.parse(event.data);
         if (payload.type === 'token_stream') {
-          // Future real-time token append hooks
+          // Streaming hooks
         }
       } catch (err) {
-        // Fallback text packet
+        // Fallback
       }
     };
 
@@ -82,73 +80,44 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
   };
 
   return (
-    <div style={{ flex: '1', display: 'flex', flexDirection: 'column', height: '100%', background: 'rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+    <div className="flex-1 flex flex-col h-full bg-black/10 overflow-hidden">
       {/* Header */}
-      <div style={{ padding: '16px', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Bot size={20} style={{ color: 'var(--accent-purple)' }} />
-        <div>
-          <h2 style={{ fontSize: '15px', color: 'var(--text-primary)' }}>Architecture & Memory Explainer</h2>
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Discussing frameworks and design structures</span>
+      <div className="p-4 border-b border-white/10 flex items-center gap-2 bg-bgCard/30">
+        <Bot size={20} className="text-accentPurple" />
+        <div className="flex flex-col">
+          <h2 className="text-sm font-semibold text-gray-100 font-outfit">Architecture & Memory Explainer</h2>
+          <span className="text-[10px] text-gray-400">Discussing frameworks and design structures</span>
         </div>
       </div>
 
       {/* Messages viewport */}
-      <div style={{ flex: '1', overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
         {messages.map((msg, idx) => (
           <div
             key={idx}
-            style={{
-              display: 'flex',
-              gap: '12px',
-              maxWidth: '80%',
-              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              flexDirection: msg.role === 'user' ? 'row-reverse' : 'row'
-            }}
+            className={`flex gap-3 max-w-[80%] ${
+              msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start flex-row'
+            } animate-fade-in`}
           >
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: msg.role === 'user' ? 'rgba(6, 182, 212, 0.2)' : 'rgba(168, 85, 247, 0.2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              border: '1px solid',
-              borderColor: msg.role === 'user' ? 'var(--accent-cyan)' : 'var(--accent-purple)',
-              flexShrink: 0
-            }}>
-              {msg.role === 'user' ? <User size={16} style={{ color: 'var(--accent-cyan)' }} /> : <Bot size={16} style={{ color: 'var(--accent-purple)' }} />}
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border ${
+              msg.role === 'user' ? 'bg-accentCyan/10 border-accentCyan' : 'bg-accentPurple/10 border-accentPurple'
+            }`}>
+              {msg.role === 'user' ? <User size={16} className="text-accentCyan" /> : <Bot size={16} className="text-accentPurple" />}
             </div>
 
-            <div style={{
-              background: msg.role === 'user' ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.01)',
-              border: '1px solid var(--border-color)',
-              padding: '12px 16px',
-              borderRadius: '12px',
-              fontSize: '13px',
-              color: 'var(--text-primary)',
-              lineHeight: '1.6',
-              whiteSpace: 'pre-wrap'
-            }}>
+            <div className={`border border-white/10 p-3 rounded-2xl text-xs leading-relaxed font-sans ${
+              msg.role === 'user' ? 'bg-white/5 text-gray-200' : 'bg-white/2 text-gray-100'
+            } whitespace-pre-wrap`}>
               {msg.content}
             </div>
           </div>
         ))}
         {isLoading && (
-          <div style={{ display: 'flex', gap: '12px', alignSelf: 'flex-start' }}>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--border-color)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}>
-              <Cpu size={16} className="animate-spin" style={{ color: 'var(--text-muted)', animation: 'spin 1.5s linear infinite' }} />
+          <div className="flex gap-3 self-start items-center">
+            <div className="w-8 h-8 rounded-full bg-white/2 border border-white/10 flex items-center justify-center flex-shrink-0">
+              <Cpu size={16} className="animate-spin text-gray-500" />
             </div>
-            <div style={{ padding: '12px 16px', color: 'var(--text-muted)', fontSize: '13px' }}>
+            <div className="p-3 text-gray-400 text-xs font-outfit">
               PEIS is reasoning...
             </div>
           </div>
@@ -157,36 +126,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
       </div>
 
       {/* Input pane */}
-      <form onSubmit={handleSend} style={{ padding: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '8px' }}>
+      <form onSubmit={handleSend} className="p-4 border-t border-white/10 flex gap-2 bg-bgCard/20">
         <input
           type="text"
           placeholder={projectId ? "Ask about design patterns, modules, or files..." : "Register a workspace path to begin..."}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={!projectId || isLoading}
-          style={{
-            flex: '1',
-            background: 'rgba(0,0,0,0.2)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '6px',
-            padding: '10px 14px',
-            color: '#fff',
-            fontSize: '13px',
-            outline: 'none'
-          }}
+          className="flex-1 bg-black/20 border border-white/10 rounded-md p-2.5 text-xs text-white outline-none focus:border-accentPurple/50 transition-all"
         />
         <button
           type="submit"
           disabled={!projectId || isLoading || !input.trim()}
-          className="glow-btn"
-          style={{
-            padding: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: (!projectId || isLoading || !input.trim()) ? 0.5 : 1,
-            cursor: (!projectId || isLoading || !input.trim()) ? 'not-allowed' : 'pointer'
-          }}
+          className="glow-btn p-2.5 flex items-center justify-center cursor-pointer"
+          style={{ opacity: (!projectId || isLoading || !input.trim()) ? 0.5 : 1 }}
         >
           <Send size={16} />
         </button>

@@ -62,18 +62,18 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
   };
 
   return (
-    <div className="settings-drawer glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: 'var(--text-primary)' }}>
-        <Settings size={18} style={{ color: 'var(--accent-purple)' }} />
+    <div className="p-4 rounded-xl border border-white/10 bg-bgCard backdrop-blur-md flex flex-col gap-4 max-w-sm m-6 hover:border-white/15 transition-all">
+      <h3 className="flex items-center gap-2 text-sm text-gray-200 font-semibold font-outfit">
+        <Settings size={18} className="text-accentPurple" />
         System Configurations
       </h3>
 
       {/* Model Provider Toggle */}
       <div>
-        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>
+        <span className="text-[10px] text-gray-400 block mb-2 font-mono uppercase">
           ACTIVE LLM REASONING ENGINE
         </span>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+        <div className="grid grid-cols-2 gap-1.5">
           {[
             { id: 'local', label: 'Local Ollama', icon: <Cpu size={12} /> },
             { id: 'gemini', label: 'Gemini Cloud', icon: <BrainCircuit size={12} /> },
@@ -81,51 +81,36 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
             <button
               key={item.id}
               onClick={() => handleProviderChange(item.id)}
-              className="glow-btn"
-              style={{
-                padding: '6px',
-                fontSize: '11px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '4px',
-                background: provider === item.id ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.02)',
-                border: '1px solid var(--border-color)',
-                color: provider === item.id ? '#fff' : 'var(--text-secondary)',
-              }}
+              className={`px-2 py-1.5 text-[11px] rounded border flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                provider === item.id
+                  ? 'glow-btn text-white'
+                  : 'border-white/10 bg-white/2 text-gray-400 hover:text-white'
+              }`}
             >
               {item.icon}
               {item.label}
             </button>
           ))}
         </div>
-        {message && <span style={{ color: 'var(--accent-cyan)', fontSize: '10px', marginTop: '6px', display: 'block' }}>{message}</span>}
+        {message && <span className="text-accentCyan text-[10px] mt-1.5 block font-mono">{message}</span>}
       </div>
 
       {/* Weak Areas List */}
-      <div>
-        <span style={{ fontSize: '11px', color: 'var(--text-secondary)', display: 'block', marginBottom: '8px' }}>
+      <div className="mt-2">
+        <span className="text-[10px] text-gray-400 block mb-2 font-mono uppercase">
           TECHNICAL WEAK TOPICS HISTORY
         </span>
         {weakTopics.length === 0 ? (
-          <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '10px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div className="bg-white/1 border border-white/5 rounded-md p-2.5 text-xs text-gray-500 flex items-center gap-1.5">
             <ShieldAlert size={14} />
             No weak topic areas detected yet
           </div>
         ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          <div className="flex flex-wrap gap-1.5">
             {weakTopics.map((topic, idx) => (
               <span
                 key={idx}
-                style={{
-                  background: 'rgba(239, 68, 68, 0.1)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                  color: '#ef4444',
-                  padding: '4px 8px',
-                  borderRadius: '100px',
-                  fontSize: '10px',
-                  fontWeight: '500',
-                }}
+                className="bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-1 rounded-full text-[10px] font-medium"
               >
                 {topic}
               </span>

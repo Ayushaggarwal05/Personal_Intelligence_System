@@ -60,57 +60,34 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
   };
 
   return (
-    <div className="search-panel glass-panel" style={{ padding: '16px', flex: '1', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: 'var(--text-primary)', marginBottom: '12px' }}>
-        <Compass size={18} style={{ color: 'var(--accent-cyan)' }} />
+    <div className="p-4 rounded-xl border border-white/10 bg-bgCard backdrop-blur-md flex flex-col overflow-hidden flex-1 hover:border-white/15 transition-all">
+      <h3 className="flex items-center gap-2 text-sm text-gray-200 mb-3 font-semibold font-outfit">
+        <Compass size={18} className="text-accentCyan" />
         Code Finder
       </h3>
 
-      <div style={{ position: 'relative', marginBottom: '8px' }}>
+      <div className="relative mb-2">
         <input
           type="text"
           placeholder="Search symbols or files..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
-          style={{
-            width: '100%',
-            background: 'rgba(0,0,0,0.2)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '6px',
-            padding: '8px 28px 8px 8px',
-            color: '#fff',
-            fontSize: '13px',
-            outline: 'none',
-            boxSizing: 'border-box',
-          }}
+          className="w-full bg-black/20 border border-white/10 rounded-md py-2 pr-7 pl-2 text-xs text-white outline-none focus:border-accentCyan/50 transition-all"
         />
         <Search
           size={14}
           onClick={() => handleSearch(query)}
-          style={{ position: 'absolute', right: '10px', top: '10px', cursor: 'pointer', color: 'var(--text-muted)' }}
+          className="absolute right-2.5 top-2.5 cursor-pointer text-gray-500 hover:text-white transition-all"
         />
 
         {suggestions.length > 0 && (
-          <div style={{
-            position: 'absolute',
-            top: '36px',
-            left: 0,
-            right: 0,
-            background: 'var(--bg-sidebar)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '6px',
-            zIndex: 10,
-            maxHeight: '150px',
-            overflowY: 'auto',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-          }}>
+          <div className="absolute top-9 left-0 right-0 bg-bgSidebar border border-white/10 rounded-md z-10 max-h-[150px] overflow-y-auto shadow-2xl">
             {suggestions.map((sug, idx) => (
               <div
                 key={idx}
                 onClick={() => handleSearch(sug)}
-                style={{ padding: '8px', fontSize: '12px', cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.02)' }}
-                className="hover-bg-sug"
+                className="p-2 text-xs cursor-pointer border-b border-white/5 hover:bg-white/5 text-gray-300 transition-all"
               >
                 {sug}
               </div>
@@ -120,7 +97,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
       </div>
 
       {/* Filter Types */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '12px', overflowX: 'auto', paddingBottom: '4px' }}>
+      <div className="flex gap-1 mb-3 overflow-x-auto pb-1">
         {[
           { key: null, label: 'All' },
           { key: 'file', label: 'Files' },
@@ -131,15 +108,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
           <button
             key={f.key}
             onClick={() => setFilterType(f.key)}
-            style={{
-              padding: '4px 8px',
-              fontSize: '11px',
-              borderRadius: '4px',
-              border: '1px solid var(--border-color)',
-              background: filterType === f.key ? 'rgba(147, 51, 234, 0.2)' : 'rgba(255,255,255,0.02)',
-              color: filterType === f.key ? 'var(--accent-purple)' : 'var(--text-secondary)',
-              cursor: 'pointer',
-            }}
+            className={`px-2 py-1 text-[10px] rounded border transition-all cursor-pointer ${
+              filterType === f.key
+                ? 'border-accentPurple bg-accentPurple/20 text-accentPurple'
+                : 'border-white/10 bg-white/2 text-gray-400 hover:text-white'
+            }`}
           >
             {f.label}
           </button>
@@ -147,39 +120,31 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
       </div>
 
       {/* Results viewport */}
-      <div style={{ flex: '1', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div className="flex-1 overflow-y-auto flex flex-col gap-2">
         {results.length === 0 ? (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', padding: '20px 0' }}>
+          <div className="text-center text-gray-500 text-xs py-5 font-outfit">
             Enter a search parameter above
           </div>
         ) : (
           results.map((res, idx) => (
             <div
               key={idx}
-              style={{
-                padding: '8px',
-                borderRadius: '6px',
-                background: 'rgba(255,255,255,0.01)',
-                border: '1px solid var(--border-color)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '8px',
-              }}
+              className="p-2.5 rounded-lg bg-white/5 border border-white/5 flex items-start gap-2 hover:border-white/10 transition-all"
             >
               {res.type === 'file' ? (
-                <FileText size={16} style={{ color: 'var(--accent-cyan)', marginTop: '2px' }} />
+                <FileText size={16} className="text-accentCyan mt-0.5" />
               ) : (
-                <Tag size={16} style={{ color: 'var(--accent-purple)', marginTop: '2px' }} />
+                <Tag size={16} className="text-accentPurple mt-0.5" />
               )}
-              <div style={{ flex: '1', minWidth: '0' }}>
-                <span style={{ fontSize: '12px', fontWeight: '500', color: 'var(--text-primary)', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-medium text-gray-100 block truncate">
                   {res.title}
                 </span>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                  {res.type.toUpperCase()} • {res.source.toUpperCase()}
+                <span className="text-[9px] text-gray-500 font-mono uppercase">
+                  {res.type} • {res.source}
                 </span>
                 {res.snippet && (
-                  <code style={{ display: 'block', fontSize: '10px', background: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '4px', marginTop: '4px', overflowX: 'auto', color: 'var(--text-secondary)' }}>
+                  <code className="block text-[9px] bg-black/30 p-1.5 rounded mt-1 overflow-x-auto text-gray-400 font-mono">
                     {res.snippet}
                   </code>
                 )}

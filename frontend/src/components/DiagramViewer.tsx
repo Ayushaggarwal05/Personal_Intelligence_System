@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Layers, Activity, GitFork, Cpu } from 'lucide-react';
 import mermaid from 'mermaid';
 
-// Initialize Mermaid.js configuration
 mermaid.initialize({
   startOnLoad: false,
   theme: 'dark',
@@ -49,7 +48,6 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId }) => {
   useEffect(() => {
     if (!mermaidCode || !containerRef.current) return;
 
-    // Reset container and compile Mermaid code markup
     containerRef.current.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
     try {
       mermaid.run({
@@ -61,19 +59,19 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId }) => {
   }, [mermaidCode]);
 
   return (
-    <div style={{ flex: '1', display: 'flex', flexDirection: 'column', height: '100%', padding: '24px', overflowY: 'auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-        <Layers size={24} style={{ color: 'var(--accent-cyan)' }} />
+    <div className="flex-1 flex flex-col h-full p-6 overflow-y-auto bg-black/10 animate-fade-in">
+      <div className="flex items-center gap-2 mb-6">
+        <Layers size={24} className="text-accentCyan" />
         <div>
-          <h2 style={{ fontSize: '18px', fontWeight: 'bold' }}>Architectural Diagram Canvas</h2>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Mermaid.js vector graphs parsed from database definitions</p>
+          <h2 className="text-lg font-bold text-gray-100 font-outfit">Architectural Diagram Canvas</h2>
+          <p className="text-xs text-gray-400">Mermaid.js vector graphs parsed from database definitions</p>
         </div>
       </div>
 
       {/* Selectors */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+      <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
         {[
-          { key: 'sequence', label: 'Controller sequence', icon: <Activity size={14} /> },
+          { key: 'sequence', label: 'Controller Sequence', icon: <Activity size={14} /> },
           { key: 'er', label: 'Database Schema ER', icon: <Layers size={14} /> },
           { key: 'api-flow', label: 'FastAPI Routes Flow', icon: <GitFork size={14} /> },
         ].map((btn) => (
@@ -81,18 +79,12 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId }) => {
             key={btn.key}
             onClick={() => setDiagType(btn.key as any)}
             disabled={!projectId}
-            className="glow-btn"
-            style={{
-              padding: '8px 12px',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: diagType === btn.key ? 'var(--accent-gradient)' : 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--border-color)',
-              color: diagType === btn.key ? '#fff' : 'var(--text-secondary)',
-              opacity: !projectId ? 0.5 : 1,
-            }}
+            className={`px-3 py-2 text-xs rounded border flex items-center gap-1.5 transition-all cursor-pointer ${
+              diagType === btn.key
+                ? 'glow-btn text-white'
+                : 'border-white/10 bg-white/2 text-gray-400 hover:text-white'
+            }`}
+            style={{ opacity: !projectId ? 0.5 : 1 }}
           >
             {btn.icon}
             {btn.label}
@@ -101,13 +93,13 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId }) => {
       </div>
 
       {/* Rendering viewport */}
-      <div className="glass-panel" style={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '300px', background: '#121216', padding: '20px', overflow: 'auto' }}>
+      <div className="glass-panel flex-1 flex items-center justify-center min-h-[300px] bg-bgSidebar p-5 overflow-auto border border-white/10 rounded-xl">
         {!projectId ? (
-          <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Register a workspace path to render flow diagrams</span>
+          <span className="text-gray-500 text-xs font-outfit">Register a workspace path to render flow diagrams</span>
         ) : isLoading ? (
-          <Cpu size={32} className="animate-spin" style={{ color: 'var(--accent-cyan)', animation: 'spin 1.5s linear infinite' }} />
+          <Cpu size={32} className="animate-spin text-accentCyan" />
         ) : (
-          <div ref={containerRef} style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center' }} />
+          <div ref={containerRef} className="w-full h-full flex justify-center" />
         )}
       </div>
     </div>

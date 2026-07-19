@@ -15,24 +15,14 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'explain' | 'interview' | 'diagrams' | 'settings'>('explain');
 
   return (
-    <div className="app-container">
+    <div className="grid grid-cols-[320px_1fr] h-screen w-screen bg-bgMain text-gray-100 overflow-hidden font-sans">
       {/* Sidebar Control Room */}
-      <aside style={{
-        background: 'var(--bg-sidebar)',
-        borderRight: '1px solid var(--border-color)',
-        padding: '20px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '16px',
-        overflowY: 'auto',
-        height: '100vh',
-        boxSizing: 'border-box'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-          <Terminal size={24} style={{ color: 'var(--accent-purple)' }} />
+      <aside className="bg-bgSidebar border-r border-white/10 p-5 flex flex-col gap-4 overflow-y-auto h-screen box-border">
+        <div className="flex items-center gap-2 mb-2">
+          <Terminal size={24} className="text-accentPurple" />
           <div>
-            <h1 style={{ fontSize: '18px', fontWeight: '800', background: 'var(--accent-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>PEIS</h1>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>PERSONAL ENG INTEL</span>
+            <h1 className="text-lg font-black bg-gradient-to-r from-accentPurple to-accentCyan bg-clip-text text-transparent font-outfit uppercase tracking-tight">PEIS</h1>
+            <span className="text-[9px] text-gray-500 font-mono tracking-widest block">PERSONAL ENG INTEL</span>
           </div>
         </div>
 
@@ -53,16 +43,9 @@ export default function App() {
       </aside>
 
       {/* Main Dialog Screen */}
-      <main style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+      <main className="flex flex-col h-screen overflow-hidden">
         {/* Navigation Tabs bar */}
-        <nav style={{
-          display: 'flex',
-          borderBottom: '1px solid var(--border-color)',
-          background: 'rgba(22, 22, 28, 0.4)',
-          padding: '12px 20px',
-          gap: '12px',
-          alignItems: 'center'
-        }}>
+        <nav className="flex border-b border-white/10 bg-black/20 px-5 py-3 gap-3 items-center">
           {[
             { id: 'explain', label: 'Architecture Explainer', icon: <MessageSquare size={16} /> },
             { id: 'interview', label: 'Mock Interview Coach', icon: <Award size={16} /> },
@@ -73,22 +56,13 @@ export default function App() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               disabled={!projectId && tab.id !== 'settings'}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md border font-semibold font-outfit text-xs transition-all cursor-pointer ${
+                activeTab === tab.id
+                  ? 'border-accentPurple/40 bg-accentPurple/10 text-accentPurple'
+                  : 'border-transparent text-gray-400 hover:text-white'
+              }`}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: '1px solid',
-                borderColor: activeTab === tab.id ? 'var(--border-color-active)' : 'transparent',
-                background: activeTab === tab.id ? 'rgba(147, 51, 234, 0.1)' : 'transparent',
-                color: activeTab === tab.id ? 'var(--accent-purple)' : 'var(--text-secondary)',
-                fontFamily: 'Outfit, sans-serif',
-                fontWeight: '600',
-                fontSize: '13px',
-                cursor: (!projectId && tab.id !== 'settings') ? 'not-allowed' : 'pointer',
                 opacity: (!projectId && tab.id !== 'settings') ? 0.4 : 1,
-                transition: 'all 0.2s ease-in-out'
               }}
             >
               {tab.icon}
@@ -98,7 +72,7 @@ export default function App() {
         </nav>
 
         {/* Active tab content container */}
-        <section style={{ flex: '1', overflow: 'hidden' }}>
+        <section className="flex-1 overflow-hidden bg-black/5">
           {activeTab === 'explain' && <ChatWindow projectId={projectId} />}
           {activeTab === 'interview' && <InterviewCoach projectId={projectId} />}
           {activeTab === 'diagrams' && <DiagramViewer projectId={projectId} />}

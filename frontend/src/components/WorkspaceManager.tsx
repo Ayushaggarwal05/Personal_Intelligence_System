@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Folder, RefreshCw } from 'lucide-react';
 
 interface WorkspaceManagerProps {
@@ -40,7 +40,6 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
       if (res.ok) {
         setProjectId(data.id);
         setProjectPath(data.path);
-        // Start initial scan automatically
         handleScan(data.id, data.path);
       } else {
         setError(data.detail || 'Failed to register workspace.');
@@ -60,7 +59,6 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
         body: JSON.stringify({ path }),
       });
       if (res.ok) {
-        // Fetch stats
         fetchStats(pId);
       } else {
         setError('Scanning workspace failed.');
@@ -85,67 +83,52 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
   };
 
   return (
-    <div className="workspace-manager glass-panel" style={{ padding: '16px', marginBottom: '16px' }}>
-      <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', color: 'var(--text-primary)', marginBottom: '12px' }}>
-        <Folder size={18} className="text-purple" style={{ color: 'var(--accent-purple)' }} />
+    <div className="p-4 mb-4 rounded-xl border border-white/10 bg-bgCard backdrop-blur-md hover:border-white/15 transition-all">
+      <h3 className="flex items-center gap-2 text-sm text-gray-200 mb-3 font-semibold font-outfit">
+        <Folder size={18} className="text-accentPurple" />
         Workspace Control
       </h3>
 
       {!projectId ? (
-        <form onSubmit={handleRegister} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <form onSubmit={handleRegister} className="flex flex-col gap-2">
           <input
             type="text"
             placeholder="Absolute workspace folder path..."
             value={inputPath}
             onChange={(e) => setInputPath(e.target.value)}
-            style={{
-              background: 'rgba(0,0,0,0.2)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '6px',
-              padding: '8px',
-              color: '#fff',
-              fontSize: '13px',
-              outline: 'none',
-            }}
+            className="w-full bg-black/20 border border-white/10 rounded-md p-2 text-xs text-white outline-none focus:border-accentPurple/50 transition-all"
           />
-          <button type="submit" className="glow-btn" style={{ padding: '8px' }}>
+          <button type="submit" className="glow-btn py-2 text-xs w-full">
             Register & Scan
           </button>
-          {error && <span style={{ color: '#ef4444', fontSize: '11px' }}>{error}</span>}
+          {error && <span className="text-red-400 text-[10px]">{error}</span>}
         </form>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ fontSize: '12px', background: 'rgba(255,255,255,0.03)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-            <span style={{ color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>ACTIVE DIR</span>
-            <code style={{ color: 'var(--accent-cyan)', wordBreak: 'break-all' }}>{projectPath}</code>
+        <div className="flex flex-col gap-3">
+          <div className="text-xs bg-white/5 p-2 rounded-md border border-white/5">
+            <span className="text-gray-400 block mb-1 text-[10px]">ACTIVE DIR</span>
+            <code className="text-accentCyan break-all font-mono">{projectPath}</code>
           </div>
 
           <button
             onClick={() => handleScan(projectId, projectPath)}
             disabled={isScanning}
-            className="glow-btn"
-            style={{
-              padding: '8px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              opacity: isScanning ? 0.7 : 1,
-            }}
+            className="glow-btn py-2 text-xs w-full flex items-center justify-center gap-2"
+            style={{ opacity: isScanning ? 0.7 : 1 }}
           >
-            <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} style={{ animation: isScanning ? 'spin 1s linear infinite' : 'none' }} />
+            <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
             {isScanning ? 'Indexing Crawler...' : 'Rescan Codebase'}
           </button>
 
           {stats && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>FILES INDEXED</span>
-                <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--accent-purple)' }}>{stats.total_files || 0}</span>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-white/2 p-2 rounded-md border border-white/5">
+                <span className="text-gray-500 text-[9px] block">FILES INDEXED</span>
+                <span className="text-base font-bold text-accentPurple">{stats.total_files || 0}</span>
               </div>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '8px', borderRadius: '6px', border: '1px solid var(--border-color)' }}>
-                <span style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>EST. TOKENS</span>
-                <span style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--accent-cyan)' }}>{stats.total_tokens || 0}</span>
+              <div className="bg-white/2 p-2 rounded-md border border-white/5">
+                <span className="text-gray-500 text-[9px] block">EST. TOKENS</span>
+                <span className="text-base font-bold text-accentCyan">{stats.total_tokens || 0}</span>
               </div>
             </div>
           )}
