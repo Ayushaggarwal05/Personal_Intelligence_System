@@ -1,7 +1,7 @@
 import os
 import json
 from typing import Optional, Dict, Any
-from app.orchestrator.model_router import run_llm_generation
+from app.orchestrator.model_router import ModelRouter, run_llm_generation
 from app.core.settings import settings
 from app.core.logging import logger
 from app.core.base_interfaces import BaseAgentInterface
@@ -14,6 +14,7 @@ class BaseAgent(BaseAgentInterface):
         self.category = category
         self.prompt_file = prompt_file
         self.system_prompt_template = ""
+        self.router = ModelRouter()
         self._load_system_prompt()
 
     def _load_system_prompt(self):
@@ -38,14 +39,16 @@ class BaseAgent(BaseAgentInterface):
             logger.error(f"Error formatting prompt template: {e}")
             return self.system_prompt_template
 
-    def call_llm(self, prompt: str, system_variables: Optional[Dict[str, Any]] = None, json_format: bool = False, provider: Optional[str] = None) -> str:
-        """Executes LLM generation pipeline using ModelRouter, capturing logs and durations."""
-        logger.info(f"[{self.name}] Initiating model generation request...")
+    def call_llm(self, prompt: str, system_variables: Optional[Dict[str, str]] = None, json_format: bool = False, provider: Optional[str] = None) -> str:
+        """Hydrates system prompt template and delegates inference to ModelRouter."""
         system_prompt = self.get_system_prompt(system_variables)
-        
-        response = run_llm_generation(prompt=prompt, system_prompt=system_prompt, json_format=json_format, provider=provider)
-        logger.info(f"[{self.name}] Model generation completed successfully.")
-        return response
+        return self.router.generate(prompt=prompt, system_prompt=system_prompt, json_format=json_format, provider=provider)
+
+    def call_llm_stream(self, prompt: str, system_variables: Optional[Dict[str, str]] = None, provider: Optional[str] = None):
+        """Hydrates system prompt template and yields token stream from ModelRouter."""
+        system_prompt = self.get_system_prompt(system_variables)
+        for token in self.router.generate_stream(prompt=prompt, system_prompt=system_prompt, provider=provider):
+            yield token
 
     def call_llm_structured(self, prompt: str, system_variables: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Call LLM and guarantees return of a valid JSON dictionary structure."""

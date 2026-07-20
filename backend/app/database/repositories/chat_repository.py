@@ -17,3 +17,14 @@ class ChatRepository(SQLiteRepository[ChatHistory]):
         """Clears all chat transcripts associated with a project."""
         self.db.query(self.model).filter(self.model.project_id == project_id).delete()
         self.db.commit()
+
+    def prune_old_messages(self, project_id: str, max_messages: int = 20):
+        """Purges old chat records for a project workspace beyond the rolling max limit."""
+        subquery = self.db.query(self.model.id).filter(
+            self.model.project_id == project_id
+        ).order_by(self.model.timestamp.desc()).offset(max_messages).all()
+        
+        if subquery:
+            ids_to_delete = [item.id for item in subquery]
+            self.db.query(self.model).filter(self.model.id.in_(ids_to_delete)).delete(synchronize_session=False)
+            self.db.commit()

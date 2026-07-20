@@ -35,37 +35,68 @@ class WorkflowEngine:
         self.memory_agent = MemoryAgent(db)
 
     def run_explain_workflow(self, project_id: str, query: str) -> str:
-        """Executes explanation workflow: Planner -> Retrieval -> Project Intel -> Reflection -> Response."""
+        """Executes explanation workflow: Retrieval -> History Context -> Project Agent -> Memory Record."""
         logger.info(f"[WorkflowEngine] Starting Project Explanation Workflow for project: {project_id}")
         project = self.project_repo.get_by_id(project_id)
         if not project:
             raise ProjectNotFoundException(project_id)
 
-        # 1. Retrieval Layer (Deterministic lookup)
-        symbols = self.symbol_repo.search_in_project(project_id, search_query="", limit=20)
+        # 1. Fetch recent chat history context
+        history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
+
+        # 2. Retrieval Layer (Deterministic symbol lookup)
+        symbols = self.symbol_repo.search_in_project(project_id, search_query="", limit=15)
         symbols_context = "\n".join([
             f"- [{s.type.upper()}] {s.name}: {s.signature or ''}" 
             for s in symbols
         ]) or "No structures indexed yet."
 
-        # 2. Project Intelligence Agent Layer
-        response = self.project_agent.explain_project(
+        # 3. Project Intelligence Agent Layer
+        response = self.project_agent.answer_user_query(
             project_name=project.name,
             framework=project.framework or "Python/FastAPI",
             database_type=project.database_type or "SQLite",
-            symbols_context=symbols_context
+            symbols_context=symbols_context,
+            user_query=query,
+            chat_history=history_context
         )
 
-        # 3. Reflection Layer (Deterministic validation/cleanup)
-        # Verify that recommended code symbols actually exist in SQLite
-        actual_symbol_names = {s.name.lower() for s in symbols}
-        # Prune or log warning if LLM mentions things completely out of scope
-        
         # Log to conversational memory
         self.memory_agent.record_chat_message(project_id, "user", query)
         self.memory_agent.record_chat_message(project_id, "assistant", response)
         
         return response
+
+    def run_explain_stream_workflow(self, project_id: str, query: str):
+        """Streams project explanation tokens and records final output into SQLite chat memory."""
+        logger.info(f"[WorkflowEngine] Starting Project Explanation Streaming Workflow for project: {project_id}")
+        project = self.project_repo.get_by_id(project_id)
+        if not project:
+            raise ProjectNotFoundException(project_id)
+
+        history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
+        symbols = self.symbol_repo.search_in_project(project_id, search_query="", limit=15)
+        symbols_context = "\n".join([
+            f"- [{s.type.upper()}] {s.name}: {s.signature or ''}" 
+            for s in symbols
+        ]) or "No structures indexed yet."
+
+        full_response_chunks = []
+        for token in self.project_agent.answer_user_query_stream(
+            project_name=project.name,
+            framework=project.framework or "Python/FastAPI",
+            database_type=project.database_type or "SQLite",
+            symbols_context=symbols_context,
+            user_query=query,
+            chat_history=history_context
+        ):
+            full_response_chunks.append(token)
+            yield token
+
+        # Record to memory upon completion
+        complete_response = "".join(full_response_chunks)
+        self.memory_agent.record_chat_message(project_id, "user", query)
+        self.memory_agent.record_chat_message(project_id, "assistant", complete_response)
 
     def run_interview_generate_workflow(self, project_id: str) -> Dict[str, Any]:
         """Executes interview question workflow: Planner -> Retrieval -> Interview Coach -> Reflection."""

@@ -16,7 +16,7 @@ class MemoryAgent:
         self.qa_repo = InterviewQARepository(db)
 
     def record_chat_message(self, project_id: str, role: str, content: str) -> ChatHistory:
-        """Saves a conversation dialog message to SQLite history."""
+        """Saves a conversation dialog message to SQLite history and prunes old logs."""
         msg = ChatHistory(
             id=str(uuid.uuid4()),
             project_id=project_id,
@@ -24,7 +24,10 @@ class MemoryAgent:
             content=content,
             timestamp=get_utc_now()
         )
-        return self.chat_repo.create(msg)
+        created = self.chat_repo.create(msg)
+        # Enforce rolling retention limit (keep max 20 messages)
+        self.chat_repo.prune_old_messages(project_id, max_messages=20)
+        return created
 
     def get_conversation_context(self, project_id: str, limit: int = 10) -> str:
         """Retrieves and formats latest dialog messages as formatted text context."""

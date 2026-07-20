@@ -57,7 +57,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
     setIsLoading(true);
 
     try {
-      const res = await fetch('http://localhost:8000/api/chat/query', {
+      // Append initial empty assistant message for real-time streaming accumulation
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+
+      const res = await fetch('http://localhost:8000/api/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -66,14 +69,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setMessages((prev) => [...prev, { role: 'assistant', content: data.response }]);
+      if (res.ok && res.body) {
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let done = false;
+        let accumulatedText = '';
+
+        while (!done) {
+          const { value, done: readerDone } = await reader.read();
+          done = readerDone;
+          if (value) {
+            const chunk = decoder.decode(value, { stream: true });
+            accumulatedText += chunk;
+            setMessages((prev) => {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: 'assistant', content: accumulatedText };
+              return updated;
+            });
+          }
+        }
       } else {
-        setMessages((prev) => [...prev, { role: 'assistant', content: "Sorry, I encountered an issue querying the model. Please check Ollama provider status." }]);
+        setMessages((prev) => [
+          ...prev.slice(0, -1),
+          { role: 'assistant', content: "Sorry, I encountered an issue querying the model. Please check Ollama provider status." }
+        ]);
       }
     } catch (err) {
-      setMessages((prev) => [...prev, { role: 'assistant', content: "Failed to connect to the backend server. Is the Uvicorn application online?" }]);
+      setMessages((prev) => [
+        ...prev.slice(0, -1),
+        { role: 'assistant', content: "Failed to connect to the backend server. Is the Uvicorn application online?" }
+      ]);
     } finally {
       setIsLoading(false);
     }

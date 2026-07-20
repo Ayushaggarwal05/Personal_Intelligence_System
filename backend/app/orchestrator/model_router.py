@@ -10,7 +10,7 @@ def make_post_request(url: str, headers: Dict[str, str], payload: Dict[str, Any]
     
     try:
         import httpx
-        with httpx.Client(timeout=60.0) as client:
+        with httpx.Client(timeout=180.0) as client:
             response = client.post(url, headers=headers, content=data)
             if response.status_code != 200:
                 raise LLMProviderException("HTTP Error", f"Status code {response.status_code}: {response.text}")
@@ -20,7 +20,7 @@ def make_post_request(url: str, headers: Dict[str, str], payload: Dict[str, Any]
         import urllib.error
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=60) as response:
+            with urllib.request.urlopen(req, timeout=180) as response:
                 return response.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8") if e else ""
@@ -74,7 +74,8 @@ class ModelRouter:
             payload = {
                 "model": settings.OLLAMA_MODEL,
                 "prompt": prompt,
-                "stream": False
+                "stream": False,
+                "keep_alive": "10m"
             }
             if system_prompt:
                 payload["system"] = system_prompt
@@ -138,35 +139,65 @@ class ModelRouter:
                 logger.error(f"[ModelRouter] Groq API failed: {e}")
                 return self._get_fallback_mock_response(prompt, json_format)
 
-        return self._get_fallback_mock_response(prompt, json_format)
+        else:
+            return self._get_fallback_mock_response(prompt, json_format)
+
+    def generate_stream(self, prompt: str, system_prompt: Optional[str] = None, provider: Optional[str] = None):
+        """Streams LLM inference tokens in real-time line-by-line as Ollama generates them."""
+        if not provider:
+            provider = settings.ACTIVE_LLM_PROVIDER.lower()
+        else:
+            provider = provider.lower()
+
+        if provider == "local" and self.check_local_ollama_health():
+            url = f"{settings.OLLAMA_HOST}/api/generate"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "model": settings.OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": True,
+                "keep_alive": "10m"
+            }
+            if system_prompt:
+                payload["system"] = system_prompt
+
+            try:
+                import httpx
+                with httpx.Client(timeout=180.0) as client:
+                    with client.stream("POST", url, headers=headers, json=payload) as response:
+                        for line in response.iter_lines():
+                            if line:
+                                try:
+                                    data = json.loads(line)
+                                    token = data.get("response", "")
+                                    if token:
+                                        yield token
+                                except Exception:
+                                    pass
+                return
+            except Exception as e:
+                logger.warning(f"[ModelRouter] Streaming failed: {e}. Yielding fallback stream.")
+
+        # Fallback non-streaming response as single chunk yield
+        full_res = self.generate(prompt=prompt, system_prompt=system_prompt, provider=provider)
+        yield full_res
 
     def _get_fallback_mock_response(self, prompt: str, json_format: bool) -> str:
-        """Fallback mock text to prevent pipeline failures in fully offline environments."""
+        """Fallback mock response when all LLM providers are unavailable."""
         if json_format:
-            prompt_lower = prompt.lower()
-            # Detect what JSON shape is expected based on keywords in the prompt
-            if "score" in prompt_lower or "scorecard" in prompt_lower or "grade" in prompt_lower or "evaluate" in prompt_lower:
-                return json.dumps({
-                    "score": 85,
-                    "suggestions": "Practice explaining structural trade-offs in detail. Focus on performance differences.",
-                    "missing_keywords": ["scalability", "complexity"],
-                    "model_answer": "This is a model response illustrating Clean Architecture principles."
-                })
-            elif "question" in prompt or "focus_area" in prompt:
-                return json.dumps({
-                    "question": "What is the computational complexity of the AST parser traversal and how is it optimized?",
-                    "focus_area": "Algorithms & Optimization",
-                    "type": "technical"
-                })
-            else:
-                return json.dumps({
-                    "success": True,
-                    "response": "Deterministic fallback mock reply."
-                })
+            return json.dumps({
+                "question": "How do you structure database connection pooling in your project?",
+                "focus_area": "Database Systems",
+                "type": "Technical",
+                "score": 85,
+                "suggestions": ["Mention connection pool size limits", "Discuss transaction isolation levels"],
+                "missing_keywords": ["connection pooling", "transaction isolation"],
+                "model_answer": "In production, database connection pooling manages a reusable queue of database connections to minimize overhead."
+            })
+        
         return "Deterministic local offline placeholder response optimized for technical interview coaching."
 
-model_router = ModelRouter()
-
 def run_llm_generation(prompt: str, system_prompt: Optional[str] = None, json_format: bool = False, provider: Optional[str] = None) -> str:
-    """Wrapper function pointing to global model_router instance to preserve backwards compatibility."""
-    return model_router.generate(prompt, system_prompt, json_format, provider)
+    """Standalone module function executing prompt generation through ModelRouter."""
+    router = ModelRouter()
+    return router.generate(prompt=prompt, system_prompt=system_prompt, json_format=json_format, provider=provider)
