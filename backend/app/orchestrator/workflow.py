@@ -14,7 +14,7 @@ from app.agents.reflection_agent import ReflectionAgent
 from app.agents.planner_agent import PlannerAgent
 from app.agents.memory_agent import MemoryAgent
 from app.utils.helpers import get_utc_now
-import uuid
+from app.tools.filesystem.read_file import read_workspace_file_content
 
 class WorkflowEngine:
     """Core workflow engine executing multi-agent steps for chat, mock interview, and codebase comparison."""
@@ -34,6 +34,47 @@ class WorkflowEngine:
         self.reflection_agent = ReflectionAgent()
         self.memory_agent = MemoryAgent(db)
 
+    def _retrieve_relevant_code_context(self, project_id: str, project_path: str, query: str) -> str:
+        """Dynamically retrieves relevant symbols and file contents based on user query keywords."""
+        stop_words = {"how", "is", "the", "file", "working", "does", "what", "can", "you", "tell", "me", "in", "my", "project", "code", "explain", "where", "show"}
+        words = [w.strip("?.,!\"'()[]{}").lower() for w in query.split() if len(w.strip("?.,!\"'()[]{}")) > 2]
+        keywords = [w for w in words if w not in stop_words]
+
+        matched_symbols = []
+        matched_file_snippets = []
+        seen_symbol_ids = set()
+
+        # 1. Search symbols and files matching keywords
+        for kw in keywords:
+            syms = self.symbol_repo.search_in_project(project_id, search_query=kw, limit=10)
+            for s in syms:
+                if s.id not in seen_symbol_ids:
+                    seen_symbol_ids.add(s.id)
+                    matched_symbols.append(s)
+                    
+            files = self.file_repo.search_by_keyword(project_id, keyword=kw, limit=3)
+            for f in files:
+                try:
+                    content = read_workspace_file_content(project_path, f.relative_path)
+                    snippet = content[:1500] + ("\n... [truncated]" if len(content) > 1500 else "")
+                    matched_file_snippets.append(f"--- File: {f.relative_path} ---\n{snippet}")
+                except Exception:
+                    pass
+
+        # If no specific keyword matches, fallback to top project symbols
+        if not matched_symbols:
+            matched_symbols = self.symbol_repo.search_in_project(project_id, search_query="", limit=15)
+
+        symbols_str = "\n".join([
+            f"- [{s.type.upper()}] {s.name}: {s.signature or ''}" 
+            for s in matched_symbols
+        ]) or "No matching structures found."
+
+        file_snippets_str = "\n\n".join(matched_file_snippets)
+        if file_snippets_str:
+            return f"Relevant File Code Snippets:\n{file_snippets_str}\n\nRelevant AST Symbols:\n{symbols_str}"
+        return f"Relevant AST Symbols:\n{symbols_str}"
+
     def run_explain_workflow(self, project_id: str, query: str) -> str:
         """Executes explanation workflow: Retrieval -> History Context -> Project Agent -> Memory Record."""
         logger.info(f"[WorkflowEngine] Starting Project Explanation Workflow for project: {project_id}")
@@ -44,12 +85,8 @@ class WorkflowEngine:
         # 1. Fetch recent chat history context
         history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
 
-        # 2. Retrieval Layer (Deterministic symbol lookup)
-        symbols = self.symbol_repo.search_in_project(project_id, search_query="", limit=15)
-        symbols_context = "\n".join([
-            f"- [{s.type.upper()}] {s.name}: {s.signature or ''}" 
-            for s in symbols
-        ]) or "No structures indexed yet."
+        # 2. Retrieval Layer (Dynamic keyword & symbol lookup)
+        symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
 
         # 3. Project Intelligence Agent Layer
         response = self.project_agent.answer_user_query(
@@ -61,9 +98,10 @@ class WorkflowEngine:
             chat_history=history_context
         )
 
-        # Log to conversational memory
-        self.memory_agent.record_chat_message(project_id, "user", query)
-        self.memory_agent.record_chat_message(project_id, "assistant", response)
+        # Log to conversational memory if technical query
+        if self.memory_agent.is_important_technical_query(query):
+            self.memory_agent.record_chat_message(project_id, "user", query)
+            self.memory_agent.record_chat_message(project_id, "assistant", response)
         
         return response
 
@@ -75,11 +113,7 @@ class WorkflowEngine:
             raise ProjectNotFoundException(project_id)
 
         history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
-        symbols = self.symbol_repo.search_in_project(project_id, search_query="", limit=15)
-        symbols_context = "\n".join([
-            f"- [{s.type.upper()}] {s.name}: {s.signature or ''}" 
-            for s in symbols
-        ]) or "No structures indexed yet."
+        symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
 
         full_response_chunks = []
         for token in self.project_agent.answer_user_query_stream(
@@ -93,10 +127,11 @@ class WorkflowEngine:
             full_response_chunks.append(token)
             yield token
 
-        # Record to memory upon completion
+        # Record to memory upon completion if technical query
         complete_response = "".join(full_response_chunks)
-        self.memory_agent.record_chat_message(project_id, "user", query)
-        self.memory_agent.record_chat_message(project_id, "assistant", complete_response)
+        if self.memory_agent.is_important_technical_query(query):
+            self.memory_agent.record_chat_message(project_id, "user", query)
+            self.memory_agent.record_chat_message(project_id, "assistant", complete_response)
 
     def run_interview_generate_workflow(self, project_id: str) -> Dict[str, Any]:
         """Executes interview question workflow: Planner -> Retrieval -> Interview Coach -> Reflection."""

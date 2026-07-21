@@ -40,6 +40,7 @@ class IgnoreMatcher:
         else:
             regex_parts.append("^")
 
+        n = len(pattern)
         while i < n:
             char = pattern[i]
             if char == "*":

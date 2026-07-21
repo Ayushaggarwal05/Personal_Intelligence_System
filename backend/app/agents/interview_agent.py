@@ -33,6 +33,16 @@ class InterviewAgent(BaseAgent):
         else:
             symbols_summary = "No files or functions indexed yet. Ask general technical questions about building projects."
 
+        # Fetch developer's weak topics from past interview evaluations
+        from app.database.repositories.interview_repository import InterviewRepository, InterviewQARepository
+        from app.agents.memory_agent import MemoryAgent
+        mem_agent = MemoryAgent(db)
+        weak_topics = mem_agent.extract_user_weak_areas(project.id)
+        
+        weak_topics_summary = ""
+        if weak_topics:
+            weak_topics_summary = f"\n\nDeveloper's Frequently Missed Technical Concepts:\n- " + "\n- ".join(weak_topics[:5])
+
         # Fetch recent git diff modifications
         git_changes = get_git_diff_patch(project.path, count=1)
 
@@ -41,7 +51,7 @@ class InterviewAgent(BaseAgent):
             "project_name": project.name,
             "framework": project.framework or "Python/FastAPI",
             "database_type": project.database_type or "SQLite",
-            "symbols": symbols_summary,
+            "symbols": symbols_summary + weak_topics_summary,
             "git_changes": git_changes
         }
 

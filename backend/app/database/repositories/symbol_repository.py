@@ -13,8 +13,14 @@ class SymbolRepository(SQLiteRepository[Symbol]):
         return self.db.query(self.model).filter(self.model.file_id == file_id).all()
 
     def search_in_project(self, project_id: str, search_query: str, limit: int = 20) -> List[Symbol]:
-        """Searches for symbols matching a keyword name or signature string within a project."""
-        return self.db.query(self.model).join(File).filter(
+        """Searches for symbols matching a keyword name, signature, or file path within a project."""
+        query_str = search_query.strip()
+        if not query_str:
+            return self.db.query(self.model).join(File, self.model.file_id == File.id).filter(File.project_id == project_id).limit(limit).all()
+            
+        return self.db.query(self.model).join(File, self.model.file_id == File.id).filter(
             File.project_id == project_id,
-            (self.model.name.like(f"%{search_query}%")) | (self.model.signature.like(f"%{search_query}%"))
+            (self.model.name.like(f"%{query_str}%")) | 
+            (self.model.signature.like(f"%{query_str}%")) |
+            (File.relative_path.like(f"%{query_str}%"))
         ).limit(limit).all()

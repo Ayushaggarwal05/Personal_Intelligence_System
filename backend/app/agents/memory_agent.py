@@ -15,6 +15,38 @@ class MemoryAgent:
         self.interview_repo = InterviewRepository(db)
         self.qa_repo = InterviewQARepository(db)
 
+    def is_important_technical_query(self, content: str) -> bool:
+        """Determines if a chat query contains technical substance worthy of database preservation."""
+        text = content.strip().lower()
+        if not text:
+            return False
+            
+        # 1. Skip simple greetings/social noise
+        greetings = {"hi", "hello", "hey", "hola", "yo", "good morning", "good afternoon", "good evening", "how are you", "thanks", "thank you"}
+        if text in greetings or any(text == g for g in greetings):
+            return False
+            
+        # 2. Check for short noise inputs
+        if len(text) <= 8 and not any(kw in text for kw in {"code", "api", "db", "git", "run", "bug", "fix", "ast"}):
+            return False
+            
+        # 3. Must contain at least one technical or interrogative keyword
+        tech_indicators = {
+            "explain", "code", "file", "function", "class", "method", "variable", "route", "api",
+            "database", "sql", "model", "query", "mismatch", "error", "bug", "fix", "setup", "run",
+            "install", "architecture", "structure", "design", "how", "why", "where", "what", "who",
+            "compare", "framework", "git", "diff", "patch", "agent", "orchestrator", "service", "core",
+            "tools", "backend", "frontend", "work"
+        }
+        if any(indicator in text for indicator in tech_indicators):
+            return True
+            
+        # If it doesn't match any indicator but is reasonably long, treat it as general query context
+        if len(text) > 20:
+            return True
+            
+        return False
+
     def record_chat_message(self, project_id: str, role: str, content: str) -> ChatHistory:
         """Saves a conversation dialog message to SQLite history and prunes old logs."""
         msg = ChatHistory(

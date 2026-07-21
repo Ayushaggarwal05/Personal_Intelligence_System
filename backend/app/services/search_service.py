@@ -37,6 +37,19 @@ class SearchService:
                     "source": "relational"
                 })
 
+            # File path matching
+            files = self.file_repo.search_by_keyword(project_id, query, limit=limit)
+            for f in files:
+                if not any(r["title"] == f.relative_path for r in results):
+                    results.append({
+                        "id": f.id,
+                        "title": f.relative_path,
+                        "type": "file",
+                        "snippet": f"File path: {f.relative_path}",
+                        "score": 0.85,
+                        "source": "relational"
+                    })
+
         # 2. Semantic Search Match (Vector Store)
         if search_type in {None, "chunks", "documentation"}:
             try:
@@ -59,20 +72,22 @@ class SearchService:
             except Exception:
                 pass
 
-        # Sort combined results by score rank descending
-        results.sort(key=lambda x: x["score"], reverse=True)
+        # Sort combined results by keyword match in title, then score rank descending
+        results.sort(key=lambda x: (1 if query.lower() in x["title"].lower() else 0, x["score"]), reverse=True)
         return results[:limit]
 
     def get_search_suggestions(self, project_id: str, prefix: str, limit: int = 5) -> List[str]:
         """Provides autocomplete list of matching symbol names or filenames."""
-        # Simple prefix search in SQLite
+        suggestions = []
         symbols = self.symbol_repo.search_in_project(project_id, prefix, limit=limit)
-        suggestions = [s.name for s in symbols]
+        for s in symbols:
+            if s.name not in suggestions:
+                suggestions.append(s.name)
         
-        files = self.file_repo.list_by_project(project_id)
+        files = self.file_repo.search_by_keyword(project_id, prefix, limit=limit)
         for f in files:
             name = f.relative_path.split("/")[-1]
-            if name.lower().startswith(prefix.lower()):
-                suggestions.append(f.relative_path)
+            if name not in suggestions:
+                suggestions.append(name)
                 
-        return list(set(suggestions))[:limit]
+        return suggestions[:limit]
