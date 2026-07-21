@@ -13,6 +13,7 @@ def chat_stream(
     project_id: str = Body(..., embed=True),
     query: Optional[str] = Body(None, embed=True),
     message: Optional[str] = Body(None, embed=True),
+    history: Optional[list] = Body(None, embed=True),
     db: Session = Depends(get_db)
 ):
     """Streams chat query responses word-by-word via plain text chunk streaming."""
@@ -23,7 +24,7 @@ def chat_stream(
     def event_generator():
         try:
             engine = WorkflowEngine(db)
-            for chunk in engine.run_explain_stream_workflow(project_id, user_query.strip()):
+            for chunk in engine.run_explain_stream_workflow(project_id, user_query.strip(), history):
                 yield chunk
         except Exception as e:
             yield f"\n[Error: {str(e)}]"
@@ -35,6 +36,7 @@ def chat_query(
     project_id: str = Body(..., embed=True),
     query: Optional[str] = Body(None, embed=True),
     message: Optional[str] = Body(None, embed=True),
+    history: Optional[list] = Body(None, embed=True),
     db: Session = Depends(get_db)
 ):
     """Executes the explain/chat workflow pipeline to yield interview-focused response answers."""
@@ -44,7 +46,7 @@ def chat_query(
 
     try:
         engine = WorkflowEngine(db)
-        response = engine.run_explain_workflow(project_id, user_query.strip())
+        response = engine.run_explain_workflow(project_id, user_query.strip(), history)
         return {"response": response}
     except PEISException as e:
         raise HTTPException(status_code=e.status_code, detail=e.message)

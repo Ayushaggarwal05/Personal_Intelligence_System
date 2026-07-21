@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Cpu } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import { Send, Bot, User, Cpu } from "lucide-react";
 
 interface Message {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
 }
 
@@ -12,15 +12,19 @@ interface ChatWindowProps {
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { role: 'assistant', content: "Hello! I am PEIS, your engineering memory coach. Please register a codebase workspace path, and we can discuss the implementation details, system architecture, and trade-offs of your project." }
+    {
+      role: "assistant",
+      content:
+        "Hello! I am ASTA, your engineering memory coach. Please register a codebase workspace path, and we can discuss the implementation details, system architecture, and trade-offs of your project.",
+    },
   ]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -28,13 +32,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
   }, [messages]);
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/api/ws');
+    const ws = new WebSocket("ws://localhost:8000/api/ws");
     wsRef.current = ws;
 
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        if (payload.type === 'token_stream') {
+        if (payload.type === "token_stream") {
           // Streaming hooks
         }
       } catch (err) {
@@ -52,28 +56,29 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
     if (!input.trim() || !projectId || isLoading) return;
 
     const userMsg = input.trim();
-    setMessages((prev) => [...prev, { role: 'user', content: userMsg }]);
-    setInput('');
+    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    setInput("");
     setIsLoading(true);
 
     try {
       // Append initial empty assistant message for real-time streaming accumulation
-      setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      const res = await fetch('http://localhost:8000/api/chat/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("http://localhost:8000/api/chat/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: projectId,
-          query: userMsg
+          query: userMsg,
+          history: messages.map(m => ({ role: m.role, content: m.content })),
         }),
       });
 
       if (res.ok && res.body) {
         const reader = res.body.getReader();
-        const decoder = new TextDecoder('utf-8');
+        const decoder = new TextDecoder("utf-8");
         let done = false;
-        let accumulatedText = '';
+        let accumulatedText = "";
 
         while (!done) {
           const { value, done: readerDone } = await reader.read();
@@ -83,7 +88,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
             accumulatedText += chunk;
             setMessages((prev) => {
               const updated = [...prev];
-              updated[updated.length - 1] = { role: 'assistant', content: accumulatedText };
+              updated[updated.length - 1] = {
+                role: "assistant",
+                content: accumulatedText,
+              };
               return updated;
             });
           }
@@ -91,13 +99,21 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
       } else {
         setMessages((prev) => [
           ...prev.slice(0, -1),
-          { role: 'assistant', content: "Sorry, I encountered an issue querying the model. Please check Ollama provider status." }
+          {
+            role: "assistant",
+            content:
+              "Sorry, I encountered an issue querying the model. Please check Ollama provider status.",
+          },
         ]);
       }
     } catch (err) {
       setMessages((prev) => [
         ...prev.slice(0, -1),
-        { role: 'assistant', content: "Failed to connect to the backend server. Is the Uvicorn application online?" }
+        {
+          role: "assistant",
+          content:
+            "Failed to connect to the backend server. Is the Uvicorn application online?",
+        },
       ]);
     } finally {
       setIsLoading(false);
@@ -110,8 +126,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
       <div className="p-4 border-b border-white/10 flex items-center gap-2 bg-bgCard/30">
         <Bot size={20} className="text-accentPurple" />
         <div className="flex flex-col">
-          <h2 className="text-sm font-semibold text-gray-100 font-outfit">Architecture & Memory Explainer</h2>
-          <span className="text-[10px] text-gray-400">Discussing frameworks and design structures</span>
+          <h2 className="text-sm font-semibold text-gray-100 font-outfit">
+            Architecture & Memory Explainer
+          </h2>
+          <span className="text-[10px] text-gray-400">
+            Discussing frameworks and design structures
+          </span>
         </div>
       </div>
 
@@ -121,18 +141,32 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
           <div
             key={idx}
             className={`flex gap-3 max-w-[80%] ${
-              msg.role === 'user' ? 'self-end flex-row-reverse' : 'self-start flex-row'
+              msg.role === "user"
+                ? "self-end flex-row-reverse"
+                : "self-start flex-row"
             } animate-fade-in`}
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border ${
-              msg.role === 'user' ? 'bg-accentCyan/10 border-accentCyan' : 'bg-accentPurple/10 border-accentPurple'
-            }`}>
-              {msg.role === 'user' ? <User size={16} className="text-accentCyan" /> : <Bot size={16} className="text-accentPurple" />}
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border ${
+                msg.role === "user"
+                  ? "bg-accentCyan/10 border-accentCyan"
+                  : "bg-accentPurple/10 border-accentPurple"
+              }`}
+            >
+              {msg.role === "user" ? (
+                <User size={16} className="text-accentCyan" />
+              ) : (
+                <Bot size={16} className="text-accentPurple" />
+              )}
             </div>
 
-            <div className={`border border-white/10 p-3 rounded-2xl text-xs leading-relaxed font-sans ${
-              msg.role === 'user' ? 'bg-white/5 text-gray-200' : 'bg-white/2 text-gray-100'
-            } whitespace-pre-wrap`}>
+            <div
+              className={`border border-white/10 p-3 rounded-2xl text-xs leading-relaxed font-sans ${
+                msg.role === "user"
+                  ? "bg-white/5 text-gray-200"
+                  : "bg-white/2 text-gray-100"
+              } whitespace-pre-wrap`}
+            >
               {msg.content}
             </div>
           </div>
@@ -143,7 +177,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
               <Cpu size={16} className="animate-spin text-gray-500" />
             </div>
             <div className="p-3 text-gray-400 text-xs font-outfit">
-              PEIS is reasoning...
+              ASTA is reasoning...
             </div>
           </div>
         )}
@@ -151,10 +185,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
       </div>
 
       {/* Input pane */}
-      <form onSubmit={handleSend} className="p-4 border-t border-white/10 flex gap-2 bg-bgCard/20">
+      <form
+        onSubmit={handleSend}
+        className="p-4 border-t border-white/10 flex gap-2 bg-bgCard/20"
+      >
         <input
           type="text"
-          placeholder={projectId ? "Ask about design patterns, modules, or files..." : "Register a workspace path to begin..."}
+          placeholder={
+            projectId
+              ? "Ask about design patterns, modules, or files..."
+              : "Register a workspace path to begin..."
+          }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={!projectId || isLoading}
@@ -164,7 +205,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
           type="submit"
           disabled={!projectId || isLoading || !input.trim()}
           className="glow-btn p-2.5 flex items-center justify-center cursor-pointer"
-          style={{ opacity: (!projectId || isLoading || !input.trim()) ? 0.5 : 1 }}
+          style={{
+            opacity: !projectId || isLoading || !input.trim() ? 0.5 : 1,
+          }}
         >
           <Send size={16} />
         </button>

@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from app.core.logging import logger
 from app.core.exceptions import PEISException, ProjectNotFoundException
@@ -13,8 +13,8 @@ from app.agents.review_agent import ReviewAgent
 from app.agents.reflection_agent import ReflectionAgent
 from app.agents.planner_agent import PlannerAgent
 from app.agents.memory_agent import MemoryAgent
-from app.utils.helpers import get_utc_now
 from app.tools.filesystem.read_file import read_workspace_file_content
+from app.tools.project.detect_dependencies import extract_dependencies
 
 class WorkflowEngine:
     """Core workflow engine executing multi-agent steps for chat, mock interview, and codebase comparison."""
@@ -43,9 +43,20 @@ class WorkflowEngine:
         matched_symbols = []
         matched_file_snippets = []
         seen_symbol_ids = set()
+        missing_files = []
+
+        # Get list of all indexed files to verify physical existence
+        all_project_files = self.file_repo.list_by_project(project_id)
+        existing_paths = [f.relative_path.lower() for f in all_project_files]
 
         # 1. Search symbols and files matching keywords
         for kw in keywords:
+            is_file_query = kw.endswith((".py", ".ts", ".js", ".json", ".yml", ".yaml", ".md", ".txt")) or kw in {"dockerfile", "docker", "docker-compose"}
+            if is_file_query:
+                # If no matching path exists, report as missing in tool search
+                if not any(kw in p for p in existing_paths):
+                    missing_files.append(kw)
+
             syms = self.symbol_repo.search_in_project(project_id, search_query=kw, limit=10)
             for s in syms:
                 if s.id not in seen_symbol_ids:
@@ -70,20 +81,60 @@ class WorkflowEngine:
             for s in matched_symbols
         ]) or "No matching structures found."
 
-        file_snippets_str = "\n\n".join(matched_file_snippets)
-        if file_snippets_str:
-            return f"Relevant File Code Snippets:\n{file_snippets_str}\n\nRelevant AST Symbols:\n{symbols_str}"
-        return f"Relevant AST Symbols:\n{symbols_str}"
+        # Get libraries list using dependencies tool
+        dependencies = []
+        try:
+            dependencies = extract_dependencies(project_path)
+        except Exception:
+            pass
+        dependencies_str = ", ".join(dependencies) if dependencies else "None detected."
 
-    def run_explain_workflow(self, project_id: str, query: str) -> str:
+        context_parts = []
+        context_parts.append(f"### Key Libraries / Dependencies Used:\n{dependencies_str}")
+
+        if missing_files:
+            alerts = [f"- [SEARCH TOOL ALERT]: The file/resource matching '{f}' was searched in the workspace but is NOT present on disk." for f in missing_files]
+            context_parts.append("### TOOL EXECUTION RESULTS:\n" + "\n".join(alerts))
+
+        if matched_file_snippets:
+            context_parts.append("### Relevant File Code Snippets:\n" + "\n\n".join(matched_file_snippets))
+            
+        context_parts.append(f"### Relevant AST Symbols:\n{symbols_str}")
+
+        return "\n\n".join(context_parts)
+
+    def _format_conversation_history(self, history: Optional[List[Dict[str, str]]]) -> str:
+        """Converts incoming frontend message list history to text context for prompt injection."""
+        if not history:
+            return "No previous messages."
+            
+        formatted_lines = []
+        for msg in history:
+            role = msg.get("role", "user").upper()
+            content = msg.get("content", "").strip()
+            
+            # Skip empty or initial greeting templates
+            if not content or "Hello! I am ASTA" in content or "Hello! I am PEIS" in content:
+                continue
+            formatted_lines.append(f"{role}: {content}")
+            
+        if not formatted_lines:
+            return "No previous messages."
+            
+        return "\n".join(formatted_lines[-6:])
+
+    def run_explain_workflow(self, project_id: str, query: str, history: Optional[List[Dict[str, str]]] = None) -> str:
         """Executes explanation workflow: Retrieval -> History Context -> Project Agent -> Memory Record."""
         logger.info(f"[WorkflowEngine] Starting Project Explanation Workflow for project: {project_id}")
         project = self.project_repo.get_by_id(project_id)
         if not project:
             raise ProjectNotFoundException(project_id)
 
-        # 1. Fetch recent chat history context
-        history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
+        # 1. Fetch recent chat history context (use passed state if available, else SQLite fallback)
+        if history is not None:
+            history_context = self._format_conversation_history(history)
+        else:
+            history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
 
         # 2. Retrieval Layer (Dynamic keyword & symbol lookup)
         symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
@@ -105,14 +156,18 @@ class WorkflowEngine:
         
         return response
 
-    def run_explain_stream_workflow(self, project_id: str, query: str):
+    def run_explain_stream_workflow(self, project_id: str, query: str, history: Optional[List[Dict[str, str]]] = None):
         """Streams project explanation tokens and records final output into SQLite chat memory."""
         logger.info(f"[WorkflowEngine] Starting Project Explanation Streaming Workflow for project: {project_id}")
         project = self.project_repo.get_by_id(project_id)
         if not project:
             raise ProjectNotFoundException(project_id)
 
-        history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
+        if history is not None:
+            history_context = self._format_conversation_history(history)
+        else:
+            history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
+            
         symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
 
         full_response_chunks = []

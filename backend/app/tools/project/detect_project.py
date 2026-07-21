@@ -95,9 +95,9 @@ def detect_project_profile(project_path: str) -> Dict[str, Any]:
     managers = list(set(managers))
 
     # Derive primary descriptors
-    primary_lang = languages[0] if languages else "Unknown"
-    primary_framework = frameworks[0] if frameworks else None
-    primary_db = databases[0] if databases else "SQLite" # default to SQLite for small local apps
+    primary_lang = ", ".join(languages) if languages else "Unknown"
+    primary_framework = ", ".join(frameworks) if frameworks else "Unknown"
+    primary_db = ", ".join(databases) if databases else "SQLite"
 
     return {
         "project_type": primary_lang,
