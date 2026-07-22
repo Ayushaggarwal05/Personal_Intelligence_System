@@ -130,6 +130,51 @@ class WorkflowEngine:
         if not project:
             raise ProjectNotFoundException(project_id)
 
+        # 0. Intercept answer submissions for ReviewAgent scoring
+        query_lower = query.lower().strip()
+        is_answer = False
+        user_answer = query
+        for prefix in ["answer:", "my response is:", "my answer is:"]:
+            if query_lower.startswith(prefix):
+                is_answer = True
+                user_answer = query[len(prefix):].strip()
+                break
+
+        if is_answer:
+            question = "Explain the system architecture, framework stack, and database setup of this codebase."
+            if history:
+                for msg in reversed(history):
+                    if msg.get("role") == "assistant" and msg.get("content"):
+                        question = msg.get("content", "").strip()
+                        break
+            context = {"db": self.db, "project_path": project.path}
+            try:
+                raw_scorecard = self.review_agent.score_answer(context, question, user_answer)
+                audited_scorecard = self.reflection_agent.validate_review_scorecard(context, raw_scorecard)
+                score = audited_scorecard.get("score", 0)
+                feedback = audited_scorecard.get("feedback", "")
+                model_answer = audited_scorecard.get("model_answer", "")
+                missing_keywords = audited_scorecard.get("missing_keywords", [])
+                matched_keywords = audited_scorecard.get("matched_keywords", [])
+                scorecard_md = (
+                    f"### 📊 ASTA Technical Answer Evaluation\n"
+                    f"**Overall Score**: `{score}/100`\n\n"
+                    f"#### 🔍 Detailed Feedback:\n"
+                    f"{feedback}\n\n"
+                    f"#### ✅ Key Terms Mentioned:\n"
+                    f"{', '.join(f'`{k}`' for k in matched_keywords) if matched_keywords else '*None*'}\n\n"
+                    f"#### ⚠️ Key Gaps (Missing Keywords):\n"
+                    f"{', '.join(f'`{k}`' for k in missing_keywords) if missing_keywords else '*None*'}\n\n"
+                    f"#### 💡 Recommended Model Pitch:\n"
+                    f"{model_answer}\n"
+                )
+            except Exception as e:
+                scorecard_md = f"### ❌ Evaluation Error\nFailed to evaluate answer: {str(e)}"
+            if self.memory_agent.is_important_technical_query(query):
+                self.memory_agent.record_chat_message(project_id, "user", query)
+                self.memory_agent.record_chat_message(project_id, "assistant", scorecard_md)
+            return scorecard_md
+
         # 1. Fetch recent chat history context (use passed state if available, else SQLite fallback)
         if history is not None:
             history_context = self._format_conversation_history(history)
@@ -149,6 +194,19 @@ class WorkflowEngine:
             chat_history=history_context
         )
 
+        # 4. Generate codebase-specific follow-up mock questions using InterviewAgent
+        context_data = {
+            "project_name": project.name,
+            "framework": project.framework or "Python/FastAPI",
+            "database_type": project.database_type or "SQLite",
+            "symbols": symbols_context
+        }
+        try:
+            followups = self.interview_agent.generate_chat_followup_questions(context_data, response)
+            response += f"\n\n{followups}"
+        except Exception as e:
+            logger.error(f"Failed to generate followups: {str(e)}")
+
         # Log to conversational memory if technical query
         if self.memory_agent.is_important_technical_query(query):
             self.memory_agent.record_chat_message(project_id, "user", query)
@@ -162,6 +220,56 @@ class WorkflowEngine:
         project = self.project_repo.get_by_id(project_id)
         if not project:
             raise ProjectNotFoundException(project_id)
+
+        # 0. Intercept answer submissions for ReviewAgent scoring
+        query_lower = query.lower().strip()
+        is_answer = False
+        user_answer = query
+        for prefix in ["answer:", "my response is:", "my answer is:"]:
+            if query_lower.startswith(prefix):
+                is_answer = True
+                user_answer = query[len(prefix):].strip()
+                break
+
+        if is_answer:
+            question = "Explain the system architecture, framework stack, and database setup of this codebase."
+            if history:
+                for msg in reversed(history):
+                    if msg.get("role") == "assistant" and msg.get("content"):
+                        question = msg.get("content", "").strip()
+                        break
+            context = {"db": self.db, "project_path": project.path}
+            try:
+                raw_scorecard = self.review_agent.score_answer(context, question, user_answer)
+                audited_scorecard = self.reflection_agent.validate_review_scorecard(context, raw_scorecard)
+                score = audited_scorecard.get("score", 0)
+                feedback = audited_scorecard.get("feedback", "")
+                model_answer = audited_scorecard.get("model_answer", "")
+                missing_keywords = audited_scorecard.get("missing_keywords", [])
+                matched_keywords = audited_scorecard.get("matched_keywords", [])
+                scorecard_md = (
+                    f"### 📊 ASTA Technical Answer Evaluation\n"
+                    f"**Overall Score**: `{score}/100`\n\n"
+                    f"#### 🔍 Detailed Feedback:\n"
+                    f"{feedback}\n\n"
+                    f"#### ✅ Key Terms Mentioned:\n"
+                    f"{', '.join(f'`{k}`' for k in matched_keywords) if matched_keywords else '*None*'}\n\n"
+                    f"#### ⚠️ Key Gaps (Missing Keywords):\n"
+                    f"{', '.join(f'`{k}`' for k in missing_keywords) if missing_keywords else '*None*'}\n\n"
+                    f"#### 💡 Recommended Model Pitch:\n"
+                    f"{model_answer}\n"
+                )
+            except Exception as e:
+                scorecard_md = f"### ❌ Evaluation Error\nFailed to evaluate answer: {str(e)}"
+            
+            chunk_size = 15
+            for i in range(0, len(scorecard_md), chunk_size):
+                yield scorecard_md[i:i+chunk_size]
+
+            if self.memory_agent.is_important_technical_query(query):
+                self.memory_agent.record_chat_message(project_id, "user", query)
+                self.memory_agent.record_chat_message(project_id, "assistant", scorecard_md)
+            return
 
         if history is not None:
             history_context = self._format_conversation_history(history)
@@ -182,11 +290,29 @@ class WorkflowEngine:
             full_response_chunks.append(token)
             yield token
 
+        # Generate codebase-specific follow-up mock questions using InterviewAgent
+        context_data = {
+            "project_name": project.name,
+            "framework": project.framework or "Python/FastAPI",
+            "database_type": project.database_type or "SQLite",
+            "symbols": symbols_context
+        }
+        complete_explanation = "".join(full_response_chunks)
+        try:
+            followups = self.interview_agent.generate_chat_followup_questions(context_data, complete_explanation)
+            yield "\n\n"
+            # Stream the follow-up questions chunk by chunk
+            chunk_size = 15
+            for i in range(0, len(followups), chunk_size):
+                yield followups[i:i+chunk_size]
+            complete_explanation += f"\n\n{followups}"
+        except Exception as e:
+            logger.error(f"Failed to generate followups: {str(e)}")
+
         # Record to memory upon completion if technical query
-        complete_response = "".join(full_response_chunks)
         if self.memory_agent.is_important_technical_query(query):
             self.memory_agent.record_chat_message(project_id, "user", query)
-            self.memory_agent.record_chat_message(project_id, "assistant", complete_response)
+            self.memory_agent.record_chat_message(project_id, "assistant", complete_explanation)
 
     def run_interview_generate_workflow(self, project_id: str) -> Dict[str, Any]:
         """Executes interview question workflow: Planner -> Retrieval -> Interview Coach -> Reflection."""

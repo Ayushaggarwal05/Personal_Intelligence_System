@@ -83,3 +83,29 @@ class InterviewAgent(BaseAgent):
                 "type": "technical",
                 "focus_area": "Architecture"
             }
+
+    def generate_chat_followup_questions(self, context: dict, explanation: str) -> str:
+        """Generates 3 codebase-specific follow-up questions relevant to the Technical Interview Mentor's explanation."""
+        project_name = context.get("project_name", "Project")
+        framework = context.get("framework", "Python")
+        database_type = context.get("database_type", "SQLite")
+        symbols = context.get("symbols", "")
+
+        prompt = (
+            f"You are the PEIS Interview Coach Agent.\n"
+            f"Based on the following technical explanation of the '{project_name}' project, generate 3 highly targeted technical interview follow-up questions.\n\n"
+            f"# Tech Stack:\n"
+            f"- Framework: {framework}\n"
+            f"- Database: {database_type}\n\n"
+            f"# Codebase Symbols Context:\n"
+            f"{symbols}\n\n"
+            f"# Recent Technical Explanation Given:\n"
+            f"{explanation}\n\n"
+            f"# INSTRUCTIONS:\n"
+            f"- Generate 3 challenging, codebase-grounded technical questions related to the explanation above.\n"
+            f"- The questions should test the developer's knowledge on architectural choices, database connection limits, API payload validation, or scaling/security patterns of their project.\n"
+            f"- Format the output as a clean, list of 3 items (e.g. 1. Question, 2. Question, 3. Question). Prefix the block with a '## ❓ Likely Follow-up Questions' markdown header. Do not include any code wrappers or system instructions."
+        )
+
+        response = self.call_llm(prompt=prompt)
+        return response

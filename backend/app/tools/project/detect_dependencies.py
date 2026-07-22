@@ -4,13 +4,35 @@ import json
 from typing import List
 
 def extract_dependencies(project_path: str) -> List[str]:
-    """Reads project configuration files and returns a list of unique dependency package names."""
+    """Reads project configuration files recursively and returns a list of unique dependency package names."""
     dependencies = set()
     project_path = os.path.abspath(project_path)
 
+    # Find all dependency configuration files up to depth 3
+    config_files = {
+        "requirements.txt": [],
+        "package.json": [],
+        "go.mod": [],
+        "Cargo.toml": [],
+        "pom.xml": []
+    }
+
+    for root, dirs, files in os.walk(project_path):
+        # Limit depth to keep walk extremely fast
+        depth = root[len(project_path):].count(os.sep)
+        if depth > 3:
+            dirs[:] = []
+            continue
+
+        # Prune ignored system directories
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in {"node_modules", "venv", "__pycache__", "dist", "build"}]
+
+        for file in files:
+            if file in config_files:
+                config_files[file].append(os.path.join(root, file))
+
     # 1. Python requirements.txt
-    req_file = os.path.join(project_path, "requirements.txt")
-    if os.path.exists(req_file):
+    for req_file in config_files["requirements.txt"]:
         try:
             with open(req_file, "r", encoding="utf-8", errors="ignore") as f:
                 for line in f:
@@ -25,8 +47,7 @@ def extract_dependencies(project_path: str) -> List[str]:
             pass
 
     # 2. JavaScript/TypeScript package.json
-    pkg_file = os.path.join(project_path, "package.json")
-    if os.path.exists(pkg_file):
+    for pkg_file in config_files["package.json"]:
         try:
             with open(pkg_file, "r", encoding="utf-8", errors="ignore") as f:
                 data = json.load(f)
@@ -38,8 +59,7 @@ def extract_dependencies(project_path: str) -> List[str]:
             pass
 
     # 3. Go modules go.mod
-    go_file = os.path.join(project_path, "go.mod")
-    if os.path.exists(go_file):
+    for go_file in config_files["go.mod"]:
         try:
             with open(go_file, "r", encoding="utf-8", errors="ignore") as f:
                 in_require_block = False
@@ -64,8 +84,7 @@ def extract_dependencies(project_path: str) -> List[str]:
             pass
 
     # 4. Rust Cargo.toml
-    cargo_file = os.path.join(project_path, "Cargo.toml")
-    if os.path.exists(cargo_file):
+    for cargo_file in config_files["Cargo.toml"]:
         try:
             with open(cargo_file, "r", encoding="utf-8", errors="ignore") as f:
                 in_dependencies = False
@@ -84,13 +103,11 @@ def extract_dependencies(project_path: str) -> List[str]:
         except Exception:
             pass
 
-    # 5. Java Maven pom.xml (simple regex parser to avoid complex xml schemas)
-    pom_file = os.path.join(project_path, "pom.xml")
-    if os.path.exists(pom_file):
+    # 5. Java Maven pom.xml
+    for pom_file in config_files["pom.xml"]:
         try:
             with open(pom_file, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
-                # find all artifactId matches
                 matches = re.findall(r"<artifactId>([^<]+)</artifactId>", content)
                 for match in matches:
                     dependencies.add(match.strip())

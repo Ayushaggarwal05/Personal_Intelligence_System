@@ -2,10 +2,9 @@ import { useState } from "react";
 import { WorkspaceManager } from "./components/WorkspaceManager";
 import { SearchPanel } from "./components/SearchPanel";
 import { ChatWindow } from "./components/ChatWindow";
-import { InterviewCoach } from "./components/InterviewCoach";
 import { DiagramViewer } from "./components/DiagramViewer";
 import { SettingsDrawer } from "./components/SettingsDrawer";
-import { Terminal, Award, Layers, Settings, MessageSquare } from "lucide-react";
+import { Terminal, Layers, Settings, MessageSquare } from "lucide-react";
 
 export default function App() {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -13,7 +12,7 @@ export default function App() {
   const [stats, setStats] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [activeTab, setActiveTab] = useState<
-    "explain" | "interview" | "diagrams" | "settings"
+    "explain" | "diagrams" | "settings"
   >("explain");
 
   return (
@@ -55,13 +54,8 @@ export default function App() {
           {[
             {
               id: "explain",
-              label: "Architecture Explainer",
+              label: "Technical Interview Mentor",
               icon: <MessageSquare size={16} />,
-            },
-            {
-              id: "interview",
-              label: "Mock Interview Coach",
-              icon: <Award size={16} />,
             },
             {
               id: "diagrams",
@@ -96,9 +90,6 @@ export default function App() {
         {/* Active tab content container */}
         <section className="flex-1 overflow-hidden bg-black/5">
           {activeTab === "explain" && <ChatWindow projectId={projectId} />}
-          {activeTab === "interview" && (
-            <InterviewCoach projectId={projectId} />
-          )}
           {activeTab === "diagrams" && <DiagramViewer projectId={projectId} />}
           {activeTab === "settings" && <SettingsDrawer projectId={projectId} />}
         </section>
