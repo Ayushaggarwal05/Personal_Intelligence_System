@@ -46,6 +46,18 @@ This document tracks the core architectural enhancements, design decisions, and 
 *   **What**: Delegated mock follow-up questions generation to the specialized `InterviewAgent` instead of forcing the general `ProjectAgent` to do it.
 *   **How**: Modified the conductor flow in `workflow.py`. The system first streams the technical pitch from `ProjectAgent`, then invokes `InterviewAgent.generate_chat_followup_questions` to design 3 highly-targeted technical questions about the explanation given, appending them directly to the client stream.
 
+### 📚 Architecture Guide Alignment
+*   **What**: Synchronized the technical design documentation with the active codebase improvements.
+*   **How**: Replaced the obsolete Workflow B (separate Mock Interview UI) in `ARCHITECTURE.md` with the new unified Technical Interview Mentor sequence diagram, outlining Turn 1 (Explanation & Question generation) and Turn 2 (Inline scorecard evaluation).
+
+### ⚡ Greeting Intent Interception & Stack Segregation
+*   **What**: Bypassed agent RAG cycles for simple greetings to save system resources and segregated monorepo dependency libraries by stack.
+*   **How**: Added string-matching greeting filters at the entry of workflows to return instant welcome template strings. Created `extract_dependencies_categorized` to separate package dependencies into Frontend and Backend layers, preventing Qwen from confusing React with SQLite and Django with Redux Toolkit.
+
+### 🎭 Casual vs. Technical Query Classifier Routing
+*   **What**: Resolved the issue where general chat messages (like "what are you doing") triggered full technical evaluations and follow-up questions.
+*   **How**: Added `is_technical_query` to `PlannerAgent` using dynamic LLM intent classification. If classified as a casual query, the workflow conductor bypasses codebase token retrieval, disables follow-up questions, and instructs `ProjectAgent` to respond naturally without appending technical mock structures.
+
 ---
 
 ## 2. Best Decisions (Why Chat is Good Now)

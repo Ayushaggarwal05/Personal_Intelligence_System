@@ -72,6 +72,28 @@ class PlannerAgent(BaseAgent):
                     {"step": 2, "agent": "ProjectAgent", "action": "explain_project", "args": {}}
                 ]
             }
+
+    def is_technical_query(self, query: str) -> bool:
+        """Determines if the query is a technical codebase query or general conversational banter."""
+        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta"}
+        cleaned = query.lower().strip("?.,!\"' ")
+        if cleaned in greetings:
+            return False
+
+        prompt = (
+            f"Analyze the following user message: '{query}'.\n"
+            f"Determine if the user is asking a technical query about a codebase (e.g. explaining a file, architecture, frameworks, database setup, or coding patterns) or just chatting casually/asking general questions (e.g. 'what are you doing', 'how are you', 'tell me a joke', 'who are you', general chat).\n\n"
+            f"Respond strictly in JSON format matching this schema:\n"
+            f"{{\n"
+            f"  \"is_technical\": true or false\n"
+            f"}}"
+        )
+        try:
+            res = self.call_llm_structured(prompt=prompt)
+            return res.get("is_technical", True)
+        except Exception:
+            intent = self.heuristic_classify_intent(query)
+            return intent != "chat"
         
 # Add a global import for logger since BaseAgent might depend on it implicitly
 from app.core.logging import logger

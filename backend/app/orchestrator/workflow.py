@@ -14,7 +14,7 @@ from app.agents.reflection_agent import ReflectionAgent
 from app.agents.planner_agent import PlannerAgent
 from app.agents.memory_agent import MemoryAgent
 from app.tools.filesystem.read_file import read_workspace_file_content
-from app.tools.project.detect_dependencies import extract_dependencies
+from app.tools.project.detect_dependencies import extract_dependencies, extract_dependencies_categorized
 
 class WorkflowEngine:
     """Core workflow engine executing multi-agent steps for chat, mock interview, and codebase comparison."""
@@ -81,16 +81,25 @@ class WorkflowEngine:
             for s in matched_symbols
         ]) or "No matching structures found."
 
-        # Get libraries list using dependencies tool
-        dependencies = []
+        # Get categorized libraries list using dependencies tool
+        frontend_deps = []
+        backend_deps = []
         try:
-            dependencies = extract_dependencies(project_path)
+            categorized_deps = extract_dependencies_categorized(project_path)
+            frontend_deps = categorized_deps.get("frontend", [])
+            backend_deps = categorized_deps.get("backend", [])
         except Exception:
             pass
-        dependencies_str = ", ".join(dependencies) if dependencies else "None detected."
+        
+        frontend_deps_str = ", ".join(frontend_deps) if frontend_deps else "None detected."
+        backend_deps_str = ", ".join(backend_deps) if backend_deps else "None detected."
 
         context_parts = []
-        context_parts.append(f"### Key Libraries / Dependencies Used:\n{dependencies_str}")
+        context_parts.append(
+            f"### Codebase Tech Stack & Library Segregation:\n"
+            f"- **Frontend Stack Libraries (from package.json)**: {frontend_deps_str}\n"
+            f"- **Backend Stack Libraries (from requirements.txt/go.mod/etc)**: {backend_deps_str}"
+        )
 
         if missing_files:
             alerts = [f"- [SEARCH TOOL ALERT]: The file/resource matching '{f}' was searched in the workspace but is NOT present on disk." for f in missing_files]
@@ -129,6 +138,19 @@ class WorkflowEngine:
         project = self.project_repo.get_by_id(project_id)
         if not project:
             raise ProjectNotFoundException(project_id)
+
+        # 0. Intercept simple greetings
+        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta"}
+        cleaned_query = query.lower().strip("?.,!\"' ")
+        if cleaned_query in greetings:
+            welcome_msg = (
+                f"Hello! I am ASTA, your Technical Interview Mentor for the **{project.name}** project.\n\n"
+                f"I've indexed your codebase. Ask me any question about architecture patterns, API endpoints, or database structures, and I will prepare you with interview-focused explanations.\n\n"
+                f"To practice your answers, prefix your message with **`Answer: `** to get scored on technical keywords!"
+            )
+            self.memory_agent.record_chat_message(project_id, "user", query)
+            self.memory_agent.record_chat_message(project_id, "assistant", welcome_msg)
+            return welcome_msg
 
         # 0. Intercept answer submissions for ReviewAgent scoring
         query_lower = query.lower().strip()
@@ -181,34 +203,42 @@ class WorkflowEngine:
         else:
             history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
 
-        # 2. Retrieval Layer (Dynamic keyword & symbol lookup)
-        symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
+        # 2. Check query intent (Is it casual conversational chat or a codebase query?)
+        is_casual = not self.planner.is_technical_query(query)
 
-        # 3. Project Intelligence Agent Layer
+        # 3. Retrieval Layer (Bypassed if casual)
+        if is_casual:
+            symbols_context = ""
+        else:
+            symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
+
+        # 4. Project Intelligence Agent Layer
         response = self.project_agent.answer_user_query(
             project_name=project.name,
             framework=project.framework or "Python/FastAPI",
             database_type=project.database_type or "SQLite",
             symbols_context=symbols_context,
             user_query=query,
-            chat_history=history_context
+            chat_history=history_context,
+            is_casual=is_casual
         )
 
-        # 4. Generate codebase-specific follow-up mock questions using InterviewAgent
-        context_data = {
-            "project_name": project.name,
-            "framework": project.framework or "Python/FastAPI",
-            "database_type": project.database_type or "SQLite",
-            "symbols": symbols_context
-        }
-        try:
-            followups = self.interview_agent.generate_chat_followup_questions(context_data, response)
-            response += f"\n\n{followups}"
-        except Exception as e:
-            logger.error(f"Failed to generate followups: {str(e)}")
+        # 5. Generate codebase-specific follow-up mock questions using InterviewAgent (Bypassed if casual)
+        if not is_casual:
+            context_data = {
+                "project_name": project.name,
+                "framework": project.framework or "Python/FastAPI",
+                "database_type": project.database_type or "SQLite",
+                "symbols": symbols_context
+            }
+            try:
+                followups = self.interview_agent.generate_chat_followup_questions(context_data, response)
+                response += f"\n\n{followups}"
+            except Exception as e:
+                logger.error(f"Failed to generate followups: {str(e)}")
 
-        # Log to conversational memory if technical query
-        if self.memory_agent.is_important_technical_query(query):
+        # Log to conversational memory if technical or casual query
+        if self.memory_agent.is_important_technical_query(query) or is_casual:
             self.memory_agent.record_chat_message(project_id, "user", query)
             self.memory_agent.record_chat_message(project_id, "assistant", response)
         
@@ -220,6 +250,22 @@ class WorkflowEngine:
         project = self.project_repo.get_by_id(project_id)
         if not project:
             raise ProjectNotFoundException(project_id)
+
+        # 0. Intercept simple greetings
+        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta"}
+        cleaned_query = query.lower().strip("?.,!\"' ")
+        if cleaned_query in greetings:
+            welcome_msg = (
+                f"Hello! I am ASTA, your Technical Interview Mentor for the **{project.name}** project.\n\n"
+                f"I've indexed your codebase. Ask me any question about architecture patterns, API endpoints, or database structures, and I will prepare you with interview-focused explanations.\n\n"
+                f"To practice your answers, prefix your message with **`Answer: `** to get scored on technical keywords!"
+            )
+            chunk_size = 15
+            for i in range(0, len(welcome_msg), chunk_size):
+                yield welcome_msg[i:i+chunk_size]
+            self.memory_agent.record_chat_message(project_id, "user", query)
+            self.memory_agent.record_chat_message(project_id, "assistant", welcome_msg)
+            return
 
         # 0. Intercept answer submissions for ReviewAgent scoring
         query_lower = query.lower().strip()
@@ -276,7 +322,13 @@ class WorkflowEngine:
         else:
             history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
             
-        symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
+        # Check query intent (Is it casual conversational chat or a codebase query?)
+        is_casual = not self.planner.is_technical_query(query)
+
+        if is_casual:
+            symbols_context = ""
+        else:
+            symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
 
         full_response_chunks = []
         for token in self.project_agent.answer_user_query_stream(
@@ -285,32 +337,35 @@ class WorkflowEngine:
             database_type=project.database_type or "SQLite",
             symbols_context=symbols_context,
             user_query=query,
-            chat_history=history_context
+            chat_history=history_context,
+            is_casual=is_casual
         ):
             full_response_chunks.append(token)
             yield token
 
-        # Generate codebase-specific follow-up mock questions using InterviewAgent
-        context_data = {
-            "project_name": project.name,
-            "framework": project.framework or "Python/FastAPI",
-            "database_type": project.database_type or "SQLite",
-            "symbols": symbols_context
-        }
         complete_explanation = "".join(full_response_chunks)
-        try:
-            followups = self.interview_agent.generate_chat_followup_questions(context_data, complete_explanation)
-            yield "\n\n"
-            # Stream the follow-up questions chunk by chunk
-            chunk_size = 15
-            for i in range(0, len(followups), chunk_size):
-                yield followups[i:i+chunk_size]
-            complete_explanation += f"\n\n{followups}"
-        except Exception as e:
-            logger.error(f"Failed to generate followups: {str(e)}")
 
-        # Record to memory upon completion if technical query
-        if self.memory_agent.is_important_technical_query(query):
+        if not is_casual:
+            # Generate codebase-specific follow-up mock questions using InterviewAgent
+            context_data = {
+                "project_name": project.name,
+                "framework": project.framework or "Python/FastAPI",
+                "database_type": project.database_type or "SQLite",
+                "symbols": symbols_context
+            }
+            try:
+                followups = self.interview_agent.generate_chat_followup_questions(context_data, complete_explanation)
+                yield "\n\n"
+                # Stream the follow-up questions chunk by chunk
+                chunk_size = 15
+                for i in range(0, len(followups), chunk_size):
+                    yield followups[i:i+chunk_size]
+                complete_explanation += f"\n\n{followups}"
+            except Exception as e:
+                logger.error(f"Failed to generate followups: {str(e)}")
+
+        # Record to memory upon completion if technical or casual query
+        if self.memory_agent.is_important_technical_query(query) or is_casual:
             self.memory_agent.record_chat_message(project_id, "user", query)
             self.memory_agent.record_chat_message(project_id, "assistant", complete_explanation)
 

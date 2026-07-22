@@ -154,37 +154,40 @@ sequenceDiagram
     WS->>UI: Return Indexing Status (Success, files processed)
 ```
 
----
+### Workflow B: Unified Tech Interview Mentor Chat & Evaluation
 
-### Workflow B: Mock Interview and Keyword Evaluation
-
-Handles interactive technical preparation.
+Handles technical explanation, mock question generation, and inline answer grading.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant UI as React Frontend
+    participant UI as React Frontend (Mentor Chat)
+    participant WE as WorkflowEngine (Conductor)
+    participant PA as Project Agent
     participant IA as Interview Coach Agent
-    participant DB as SQLite (AST & Context)
     participant RA as Review Agent
     participant RE as Reflection Agent
+    
+    rect rgb(240, 255, 240)
+        note over UI, IA: Turn 1: Explainer & Mock Question Generation
+        UI->>WE: Ask technical question about codebase
+        WE->>PA: Explain codebase stack and trade-offs
+        PA-->>WE: Stream explanation response text
+        WE->>IA: Generate 3 targeted codebase-specific questions
+        IA-->>WE: Return follow-up questions list
+        WE-->>UI: Stream complete Technical Interview Mentor response
+    end
 
-    UI->>IA: Start Mock Interview
-    IA->>DB: Pull API lists, DB Schemas, and Project Summaries
-    IA->>UI: Generate & Present Project-Specific Interview Question
-    UI->>IA: Submit User Response (Text / Transcript)
-
-    IA->>RA: Pass Question, User Response, & Project Context
-    RA->>RA: Extract response concepts & compare to project metadata
-    RA->>RA: Identify missing concepts (e.g., JWT rotation, Connection Pooling)
-    RA->>RA: Generate senior-level model answer
-
-    RA->>RE: Request output verification
-    RE->>RE: Check response against code files (verify keywords exist)
-    RE-->>RA: Verification approved
-
-    RA->>DB: Log Question, Answer, Score & Feedback
-    RA->>UI: Return Scorecard (Keywords gap, model answer, rating)
+    rect rgb(240, 240, 255)
+        note over UI, RE: Turn 2: Inline Scorecard Evaluation
+        UI->>WE: Submit answer (prefixed with "Answer: ...")
+        WE->>WE: Retrieve last question from history
+        WE->>RA: Grade user answer & match codebase keywords
+        RA-->>WE: Return score and keyword feedback gaps
+        WE->>RE: Audit scorecard suggestions against SQLite symbol tables
+        RE-->>WE: Verify and approve scorecard
+        WE-->>UI: Stream formatted Markdown scorecard
+    end
 ```
 
 ---
