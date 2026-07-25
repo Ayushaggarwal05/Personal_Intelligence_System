@@ -85,15 +85,15 @@ class InterviewAgent(BaseAgent):
             }
 
     def generate_chat_followup_questions(self, context: dict, explanation: str) -> str:
-        """Generates exactly 3 codebase-specific follow-up questions relevant to the explanation, progressively harder."""
+        """Generates exactly 3 codebase-specific learning path follow-up questions the user should ask ASTA next."""
         project_name = context.get("project_name", "Project")
         framework = context.get("framework", "Python")
         database_type = context.get("database_type", "SQLite")
         symbols = context.get("symbols", "")
 
         prompt = (
-            f"You are the PEIS Interview Coach Agent.\n"
-            f"Based on the following technical explanation of the '{project_name}' project, generate exactly 3 targeted technical interview follow-up questions.\n\n"
+            f"You are the ASTA Learning Path Generator Agent.\n"
+            f"Based on the following technical explanation of the '{project_name}' project, generate exactly 2 progressive technical questions that the user should ask ASTA next to deepen their codebase understanding.\n\n"
             f"# Tech Stack:\n"
             f"- Framework: {framework}\n"
             f"- Database: {database_type}\n\n"
@@ -102,12 +102,14 @@ class InterviewAgent(BaseAgent):
             f"# Recent Technical Explanation Given:\n"
             f"{explanation}\n\n"
             f"# INSTRUCTIONS:\n"
-            f"- Generate exactly 3 codebase-grounded technical questions related to the explanation above, structured as follows:\n"
-            f"  1. Question 1 (Basic/Intermediate): Core concept explanation (e.g. 'How does X route link to database?').\n"
-            f"  2. Question 2 (Deep Code Detail): Specific implementation detail or coding pattern (e.g. 'How does Y service manage database transaction context manager blocks?').\n"
-            f"  3. Question 3 (Senior/Architectural Trade-off): Advanced system design trade-off, concurrency/locking, or performance optimization defense (e.g. 'What are the scalability limits of using SQLite database connection pooling under load, and what is your mitigation strategy?').\n"
-            f"- Format the output with a '## ❓ Likely Follow-up Questions' markdown header. Make sure the numbered items are clearly labeled and progressive.\n"
-            f"- Do not include any system thoughts, introductory remarks, or markdown code-block wraps."
+            f"- Generate exactly 2 codebase-grounded technical questions related directly to the stack and codebase context above.\n"
+            f"- The questions must NOT be quiz questions for the user to answer. They must be questions for the user to ask ASTA next to learn more (e.g. 'Why did we choose X over Y?', 'How is Z pattern implemented here?').\n"
+            f"- Structure the questions to progressively deepen understanding (e.g., Question 1 focuses on design choices, Question 2 focuses on scaling/locking details).\n"
+            f"- Format the output strictly as:\n"
+            f"To deepen your understanding of this topic, consider asking:\n\n"
+            f"1. [First progressive learning question]\n\n"
+            f"2. [Second progressive learning question]\n"
+            f"- Do not include any markdown headers (no '#', no '##'), introductory remarks, system thoughts, or markdown code-block wraps."
         )
 
         response = self.call_llm(prompt=prompt)
