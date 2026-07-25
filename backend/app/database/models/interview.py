@@ -1,6 +1,6 @@
 import time
 from sqlalchemy import Column, String, Integer, ForeignKey, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, synonym
 from app.database.session import Base
 
 class Interview(Base):
@@ -24,6 +24,7 @@ class InterviewQA(Base):
     question = Column(Text, nullable=False)
     user_answer = Column(Text, nullable=True)
     feedback_json = Column(Text, nullable=True) # Stores JSON metadata: missing keywords, score, model answer, suggestions
+    scorecard = synonym("feedback_json")
     timestamp = Column(Integer, default=lambda: int(time.time()))
 
     # Relationships

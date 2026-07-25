@@ -85,7 +85,7 @@ class InterviewAgent(BaseAgent):
             }
 
     def generate_chat_followup_questions(self, context: dict, explanation: str) -> str:
-        """Generates 3 codebase-specific follow-up questions relevant to the Technical Interview Mentor's explanation."""
+        """Generates exactly 3 codebase-specific follow-up questions relevant to the explanation, progressively harder."""
         project_name = context.get("project_name", "Project")
         framework = context.get("framework", "Python")
         database_type = context.get("database_type", "SQLite")
@@ -93,7 +93,7 @@ class InterviewAgent(BaseAgent):
 
         prompt = (
             f"You are the PEIS Interview Coach Agent.\n"
-            f"Based on the following technical explanation of the '{project_name}' project, generate 3 highly targeted technical interview follow-up questions.\n\n"
+            f"Based on the following technical explanation of the '{project_name}' project, generate exactly 3 targeted technical interview follow-up questions.\n\n"
             f"# Tech Stack:\n"
             f"- Framework: {framework}\n"
             f"- Database: {database_type}\n\n"
@@ -102,9 +102,12 @@ class InterviewAgent(BaseAgent):
             f"# Recent Technical Explanation Given:\n"
             f"{explanation}\n\n"
             f"# INSTRUCTIONS:\n"
-            f"- Generate 3 challenging, codebase-grounded technical questions related to the explanation above.\n"
-            f"- The questions should test the developer's knowledge on architectural choices, database connection limits, API payload validation, or scaling/security patterns of their project.\n"
-            f"- Format the output as a clean, list of 3 items (e.g. 1. Question, 2. Question, 3. Question). Prefix the block with a '## ❓ Likely Follow-up Questions' markdown header. Do not include any code wrappers or system instructions."
+            f"- Generate exactly 3 codebase-grounded technical questions related to the explanation above, structured as follows:\n"
+            f"  1. Question 1 (Basic/Intermediate): Core concept explanation (e.g. 'How does X route link to database?').\n"
+            f"  2. Question 2 (Deep Code Detail): Specific implementation detail or coding pattern (e.g. 'How does Y service manage database transaction context manager blocks?').\n"
+            f"  3. Question 3 (Senior/Architectural Trade-off): Advanced system design trade-off, concurrency/locking, or performance optimization defense (e.g. 'What are the scalability limits of using SQLite database connection pooling under load, and what is your mitigation strategy?').\n"
+            f"- Format the output with a '## ❓ Likely Follow-up Questions' markdown header. Make sure the numbered items are clearly labeled and progressive.\n"
+            f"- Do not include any system thoughts, introductory remarks, or markdown code-block wraps."
         )
 
         response = self.call_llm(prompt=prompt)

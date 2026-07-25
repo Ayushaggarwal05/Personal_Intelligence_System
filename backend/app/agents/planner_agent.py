@@ -73,27 +73,56 @@ class PlannerAgent(BaseAgent):
                 ]
             }
 
-    def is_technical_query(self, query: str) -> bool:
-        """Determines if the query is a technical codebase query or general conversational banter."""
-        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta"}
-        cleaned = query.lower().strip("?.,!\"' ")
-        if cleaned in greetings:
-            return False
-
+    def classify_mode(self, query: str) -> str:
+        """Classifies the user query intent into one of the 5 ASTA interaction modes."""
+        query_lower = query.lower().strip("?.,!\"' ")
+        
+        # 1. Fast heuristic checks for common greetings
+        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta", "yo"}
+        if query_lower in greetings:
+            return "casual"
+            
+        # Fast heuristic checks for mock interview requests
+        interview_keywords = {"interview me", "take my interview", "ask me questions", "mock interview", "start interview"}
+        if any(kw in query_lower for kw in interview_keywords):
+            return "mock_interview_start"
+            
+        # 2. LLM-based classification for high-accuracy
         prompt = (
-            f"Analyze the following user message: '{query}'.\n"
-            f"Determine if the user is asking a technical query about a codebase (e.g. explaining a file, architecture, frameworks, database setup, or coding patterns) or just chatting casually/asking general questions (e.g. 'what are you doing', 'how are you', 'tell me a joke', 'who are you', general chat).\n\n"
+            f"Analyze the following user query: '{query}'.\n"
+            f"Classify the user intent into exactly one of these categories:\n"
+            f"1. \"casual\" - Greetings, social talk, 'how are you', 'who are you', 'introduce yourself', or general small talk.\n"
+            f"2. \"mock_interview_start\" - Requests to start or take a mock interview session (e.g. 'interview me', 'ask me questions').\n"
+            f"3. \"architecture_discuss\" - High-level systems design discussion, framework choices ('Why Django?', 'Why SQLite?'), scaling, design trade-offs, or improvement suggestions.\n"
+            f"4. \"project_explain\" - Explaining specific files, folder structures, modules, authentication flow, database schemas, or code implementation details of the project.\n"
+            f"5. \"general_technical\" - Conceptual questions NOT specific to the current project codebase (e.g. 'What is JWT', 'What is REST', 'Explain Docker').\n\n"
             f"Respond strictly in JSON format matching this schema:\n"
             f"{{\n"
-            f"  \"is_technical\": true or false\n"
+            f"  \"mode\": \"casual\" | \"mock_interview_start\" | \"architecture_discuss\" | \"project_explain\" | \"general_technical\"\n"
             f"}}"
         )
         try:
             res = self.call_llm_structured(prompt=prompt)
-            return res.get("is_technical", True)
+            mode = res.get("mode", "project_explain")
+            if mode in {"casual", "mock_interview_start", "architecture_discuss", "project_explain", "general_technical"}:
+                return mode
         except Exception:
-            intent = self.heuristic_classify_intent(query)
-            return intent != "chat"
+            pass
+            
+        # 3. Robust heuristic fallback if LLM classification fails
+        if any(kw in query_lower for kw in {"why django", "why react", "why sqlite", "scale", "impro", "alternative"}):
+            return "architecture_discuss"
+        elif any(kw in query_lower for kw in {"what is jwt", "what is rest", "explain docker", "explain jwt"}):
+            return "general_technical"
+        elif any(kw in query_lower for kw in {"explain", "how does", "route", "database", "auth", "login"}):
+            return "project_explain"
+            
+        return "casual"
+
+    def is_technical_query(self, query: str) -> bool:
+        """Determines if the query is a technical codebase query or general conversational banter."""
+        mode = self.classify_mode(query)
+        return mode not in {"casual", "mock_interview_start"}
         
 # Add a global import for logger since BaseAgent might depend on it implicitly
 from app.core.logging import logger

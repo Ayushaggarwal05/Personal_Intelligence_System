@@ -1,4 +1,5 @@
 import json
+import uuid
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from app.core.logging import logger
@@ -15,6 +16,7 @@ from app.agents.planner_agent import PlannerAgent
 from app.agents.memory_agent import MemoryAgent
 from app.tools.filesystem.read_file import read_workspace_file_content
 from app.tools.project.detect_dependencies import extract_dependencies, extract_dependencies_categorized
+from app.utils.helpers import get_utc_now
 
 class WorkflowEngine:
     """Core workflow engine executing multi-agent steps for chat, mock interview, and codebase comparison."""
@@ -139,20 +141,13 @@ class WorkflowEngine:
         if not project:
             raise ProjectNotFoundException(project_id)
 
-        # 0. Intercept simple greetings
-        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta"}
-        cleaned_query = query.lower().strip("?.,!\"' ")
-        if cleaned_query in greetings:
-            welcome_msg = (
-                f"Hello! I am ASTA, your Technical Interview Mentor for the **{project.name}** project.\n\n"
-                f"I've indexed your codebase. Ask me any question about architecture patterns, API endpoints, or database structures, and I will prepare you with interview-focused explanations.\n\n"
-                f"To practice your answers, prefix your message with **`Answer: `** to get scored on technical keywords!"
-            )
-            self.memory_agent.record_chat_message(project_id, "user", query)
-            self.memory_agent.record_chat_message(project_id, "assistant", welcome_msg)
-            return welcome_msg
+        # 0. Fetch recent chat history context
+        if history is not None:
+            history_context = self._format_conversation_history(history)
+        else:
+            history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
 
-        # 0. Intercept answer submissions for ReviewAgent scoring
+        # 1. Determine if this is a mock interview answer submission
         query_lower = query.lower().strip()
         is_answer = False
         user_answer = query
@@ -162,12 +157,30 @@ class WorkflowEngine:
                 user_answer = query[len(prefix):].strip()
                 break
 
+        if not is_answer and history_context:
+            history_lines = history_context.split("\n")
+            last_assistant_msg = ""
+            for line in reversed(history_lines):
+                if line.startswith("ASSISTANT:"):
+                    last_assistant_msg = line
+                    break
+            if last_assistant_msg and ("**question**:" in last_assistant_msg.lower() or "interview question" in last_assistant_msg.lower()):
+                is_answer = True
+                user_answer = query
+
         if is_answer:
             question = "Explain the system architecture, framework stack, and database setup of this codebase."
-            if history:
-                for msg in reversed(history):
-                    if msg.get("role") == "assistant" and msg.get("content"):
-                        question = msg.get("content", "").strip()
+            if history_context:
+                history_lines = history_context.split("\n")
+                for line in reversed(history_lines):
+                    if line.startswith("ASSISTANT:") and ":" in line:
+                        content = line.split(":", 1)[1].strip()
+                        if "**Question**:" in content:
+                            question = content.split("**Question**:")[-1].split("*Please")[0].strip()
+                        elif "Here is your first question:" in content:
+                            question = content.split("Here is your first question:")[-1].strip()
+                        else:
+                            question = content
                         break
             context = {"db": self.db, "project_path": project.path}
             try:
@@ -190,6 +203,16 @@ class WorkflowEngine:
                     f"#### 💡 Recommended Model Pitch:\n"
                     f"{model_answer}\n"
                 )
+
+                # Automatically generate and append the next question
+                next_q_data = self.run_interview_generate_workflow(project_id)
+                next_q_text = (
+                    f"\n---\n\n"
+                    f"Let's move to the next question:\n\n"
+                    f"**Question**: {next_q_data['question']}\n\n"
+                    f"*Please prefix your response with **`Answer: `** to submit it.*"
+                )
+                scorecard_md += next_q_text
             except Exception as e:
                 scorecard_md = f"### ❌ Evaluation Error\nFailed to evaluate answer: {str(e)}"
             if self.memory_agent.is_important_technical_query(query):
@@ -197,14 +220,23 @@ class WorkflowEngine:
                 self.memory_agent.record_chat_message(project_id, "assistant", scorecard_md)
             return scorecard_md
 
-        # 1. Fetch recent chat history context (use passed state if available, else SQLite fallback)
-        if history is not None:
-            history_context = self._format_conversation_history(history)
-        else:
-            history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
+        # 2. Check query intent mode
+        mode = self.planner.classify_mode(query)
 
-        # 2. Check query intent (Is it casual conversational chat or a codebase query?)
-        is_casual = not self.planner.is_technical_query(query)
+        # Mode 4 Start Intercept
+        if mode == "mock_interview_start":
+            interview_data = self.run_interview_generate_workflow(project_id)
+            welcome_msg = (
+                f"Alright, let's begin your mock interview prep for **{project.name}**.\n\n"
+                f"I'll act as the interviewer. Here is your first question:\n\n"
+                f"**Question**: {interview_data['question']}\n\n"
+                f"*Please start your response with **`Answer: `** to submit it for evaluation.*"
+            )
+            self.memory_agent.record_chat_message(project_id, "user", query)
+            self.memory_agent.record_chat_message(project_id, "assistant", welcome_msg)
+            return welcome_msg
+
+        is_casual = (mode == "casual")
 
         # 3. Retrieval Layer (Bypassed if casual)
         if is_casual:
@@ -220,11 +252,12 @@ class WorkflowEngine:
             symbols_context=symbols_context,
             user_query=query,
             chat_history=history_context,
-            is_casual=is_casual
+            is_casual=is_casual,
+            mode=mode
         )
 
-        # 5. Generate codebase-specific follow-up mock questions using InterviewAgent (Bypassed if casual)
-        if not is_casual:
+        # 5. Generate codebase-specific follow-up mock questions (Only for Mode 2 & Mode 3)
+        if mode in {"project_explain", "architecture_discuss"}:
             context_data = {
                 "project_name": project.name,
                 "framework": project.framework or "Python/FastAPI",
@@ -237,11 +270,11 @@ class WorkflowEngine:
             except Exception as e:
                 logger.error(f"Failed to generate followups: {str(e)}")
 
-        # Log to conversational memory if technical or casual query
+        # Record to memory upon completion if technical or casual query
         if self.memory_agent.is_important_technical_query(query) or is_casual:
             self.memory_agent.record_chat_message(project_id, "user", query)
             self.memory_agent.record_chat_message(project_id, "assistant", response)
-        
+
         return response
 
     def run_explain_stream_workflow(self, project_id: str, query: str, history: Optional[List[Dict[str, str]]] = None):
@@ -251,23 +284,13 @@ class WorkflowEngine:
         if not project:
             raise ProjectNotFoundException(project_id)
 
-        # 0. Intercept simple greetings
-        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta"}
-        cleaned_query = query.lower().strip("?.,!\"' ")
-        if cleaned_query in greetings:
-            welcome_msg = (
-                f"Hello! I am ASTA, your Technical Interview Mentor for the **{project.name}** project.\n\n"
-                f"I've indexed your codebase. Ask me any question about architecture patterns, API endpoints, or database structures, and I will prepare you with interview-focused explanations.\n\n"
-                f"To practice your answers, prefix your message with **`Answer: `** to get scored on technical keywords!"
-            )
-            chunk_size = 15
-            for i in range(0, len(welcome_msg), chunk_size):
-                yield welcome_msg[i:i+chunk_size]
-            self.memory_agent.record_chat_message(project_id, "user", query)
-            self.memory_agent.record_chat_message(project_id, "assistant", welcome_msg)
-            return
+        # 0. Fetch recent chat history context
+        if history is not None:
+            history_context = self._format_conversation_history(history)
+        else:
+            history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
 
-        # 0. Intercept answer submissions for ReviewAgent scoring
+        # 1. Determine if this is a mock interview answer submission
         query_lower = query.lower().strip()
         is_answer = False
         user_answer = query
@@ -277,12 +300,30 @@ class WorkflowEngine:
                 user_answer = query[len(prefix):].strip()
                 break
 
+        if not is_answer and history_context:
+            history_lines = history_context.split("\n")
+            last_assistant_msg = ""
+            for line in reversed(history_lines):
+                if line.startswith("ASSISTANT:"):
+                    last_assistant_msg = line
+                    break
+            if last_assistant_msg and ("**question**:" in last_assistant_msg.lower() or "interview question" in last_assistant_msg.lower()):
+                is_answer = True
+                user_answer = query
+
         if is_answer:
             question = "Explain the system architecture, framework stack, and database setup of this codebase."
-            if history:
-                for msg in reversed(history):
-                    if msg.get("role") == "assistant" and msg.get("content"):
-                        question = msg.get("content", "").strip()
+            if history_context:
+                history_lines = history_context.split("\n")
+                for line in reversed(history_lines):
+                    if line.startswith("ASSISTANT:") and ":" in line:
+                        content = line.split(":", 1)[1].strip()
+                        if "**Question**:" in content:
+                            question = content.split("**Question**:")[-1].split("*Please")[0].strip()
+                        elif "Here is your first question:" in content:
+                            question = content.split("Here is your first question:")[-1].strip()
+                        else:
+                            question = content
                         break
             context = {"db": self.db, "project_path": project.path}
             try:
@@ -305,6 +346,16 @@ class WorkflowEngine:
                     f"#### 💡 Recommended Model Pitch:\n"
                     f"{model_answer}\n"
                 )
+
+                # Automatically generate and append the next question
+                next_q_data = self.run_interview_generate_workflow(project_id)
+                next_q_text = (
+                    f"\n---\n\n"
+                    f"Let's move to the next question:\n\n"
+                    f"**Question**: {next_q_data['question']}\n\n"
+                    f"*Please prefix your response with **`Answer: `** to submit it.*"
+                )
+                scorecard_md += next_q_text
             except Exception as e:
                 scorecard_md = f"### ❌ Evaluation Error\nFailed to evaluate answer: {str(e)}"
             
@@ -317,19 +368,34 @@ class WorkflowEngine:
                 self.memory_agent.record_chat_message(project_id, "assistant", scorecard_md)
             return
 
-        if history is not None:
-            history_context = self._format_conversation_history(history)
-        else:
-            history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
-            
-        # Check query intent (Is it casual conversational chat or a codebase query?)
-        is_casual = not self.planner.is_technical_query(query)
+        # 2. Check query intent mode
+        mode = self.planner.classify_mode(query)
 
+        # Mode 4 Start Intercept
+        if mode == "mock_interview_start":
+            interview_data = self.run_interview_generate_workflow(project_id)
+            welcome_msg = (
+                f"Alright, let's begin your mock interview prep for **{project.name}**.\n\n"
+                f"I'll act as the interviewer. Here is your first question:\n\n"
+                f"**Question**: {interview_data['question']}\n\n"
+                f"*Please start your response with **`Answer: `** to submit it for evaluation.*"
+            )
+            chunk_size = 15
+            for i in range(0, len(welcome_msg), chunk_size):
+                yield welcome_msg[i:i+chunk_size]
+            self.memory_agent.record_chat_message(project_id, "user", query)
+            self.memory_agent.record_chat_message(project_id, "assistant", welcome_msg)
+            return
+
+        is_casual = (mode == "casual")
+
+        # 3. Retrieval Layer (Bypassed if casual)
         if is_casual:
             symbols_context = ""
         else:
             symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
 
+        # 4. Project Intelligence Agent Layer
         full_response_chunks = []
         for token in self.project_agent.answer_user_query_stream(
             project_name=project.name,
@@ -338,15 +404,16 @@ class WorkflowEngine:
             symbols_context=symbols_context,
             user_query=query,
             chat_history=history_context,
-            is_casual=is_casual
+            is_casual=is_casual,
+            mode=mode
         ):
             full_response_chunks.append(token)
             yield token
 
         complete_explanation = "".join(full_response_chunks)
 
-        if not is_casual:
-            # Generate codebase-specific follow-up mock questions using InterviewAgent
+        # 5. Generate codebase-specific follow-up mock questions (Only for Mode 2 & Mode 3)
+        if mode in {"project_explain", "architecture_discuss"}:
             context_data = {
                 "project_name": project.name,
                 "framework": project.framework or "Python/FastAPI",
