@@ -480,7 +480,7 @@ LLMs are used only for reasoning, explanation, interview generation, and natural
 
 ### Incremental Intelligence
 
-Only changed files are reprocessed, making the system efficient and scalable.
+Only changed files are reprocessed, making the system efficient, fast, and scalable. The system must avoid making a heavy load on memory and be as fast as possible when responding.
 
 ### Long-Term Engineering Memory
 

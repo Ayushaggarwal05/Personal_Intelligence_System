@@ -78,9 +78,35 @@ class PlannerAgent(BaseAgent):
         query_lower = query.lower().strip("?.,!\"' ")
         
         # 1. Fast heuristic checks for common greetings
-        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta", "yo"}
+        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta", "yo", "wave"}
         if query_lower in greetings or any(query_lower.startswith(g) for g in ["who are you", "how are you", "introduce yourself"]):
             return {"mode": "casual", "objective": "concept_explain"}
+
+        # 1b. High-performance deterministic keyword pass (Approach 1: Heuristics-First)
+        # Check codebase exploration queries
+        explore_kws = {"folder", "directory", "directories", "files in", "structure of", "whats in", "what's in", "show me files", "where is", "how to find", "find file", "find class", "find route", "locate"}
+        if any(kw in query_lower for kw in explore_kws):
+            return {"mode": "codebase_explore", "objective": "project_pitch"}
+
+        # Check architecture discussion queries
+        arch_kws = {"why react", "why django", "why sqlite", "why fastapi", "trade-off", "tradeoff", "scalability", "alternatives", "design critique", "scale"}
+        if any(kw in query_lower for kw in arch_kws):
+            return {"mode": "architecture_discuss", "objective": "design_critique"}
+
+        # Check conceptual general technical queries
+        tech_kws = {"what is jwt", "what is oauth", "what is rest", "what is clean architecture", "concept of", "definition of", "explain docker"}
+        if any(kw in query_lower for kw in tech_kws):
+            return {"mode": "general_technical", "objective": "concept_explain"}
+
+        # Check learning guidance queries
+        guidance_kws = {"study plan", "learning path", "how to prepare", "prepare for", "career advice", "guide me", "mock interview"}
+        if any(kw in query_lower for kw in guidance_kws):
+            return {"mode": "learning_guidance", "objective": "concept_explain"}
+
+        # Check explicit project explanation queries
+        explain_kws = {"explain how", "route logic", "database schema", "model design", "login flow", "auth logic"}
+        if any(kw in query_lower for kw in explain_kws):
+            return {"mode": "project_explain", "objective": "project_pitch"}
             
         # 2. LLM-based classification for high-accuracy
         prompt = (

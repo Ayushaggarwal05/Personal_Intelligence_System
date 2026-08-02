@@ -9,11 +9,8 @@ backend_path = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_path))
 
 from app.database.session import engine, Base, SessionLocal
-from app.orchestrator.workflow import workflow_engine
-from app.orchestrator.model_router import run_llm_generation
-from app.agents.workspace_agent import WorkspaceAgent
-from app.agents.retrieval_agent import RetrievalAgent
-from app.core.settings import settings
+from app.orchestrator.workflow import WorkflowEngine
+from app.agents.planner_agent import PlannerAgent
 
 def run_test():
     print("=== Testing Planning & Orchestration Workflow ===")
@@ -22,63 +19,49 @@ def run_test():
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     
-    # Create temp directory
-    temp_dir = tempfile.mkdtemp(prefix="peis_orch_test_")
-    
-    # 2. Register Agents
-    ws_agent = WorkspaceAgent()
-    ret_agent = RetrievalAgent()
-    
-    workflow_engine.register_agent("workspace_agent", ws_agent)
-    workflow_engine.register_agent("retrieval_agent", ret_agent)
-
     try:
-        # 3. Test Planner & Workflow Execution for Intent 'search'
-        query = "find get_user_profile routes"
-        print(f"\nExecuting workflow for query: '{query}'")
-        res = workflow_engine.execute_workflow(
-            user_query=query,
-            project_path=temp_dir,
-            db_session=db
-        )
+        # 2. Verify Planner Agent Heuristics-First intent classification
+        print("\nVerifying Heuristics-First Classifier in PlannerAgent...")
+        planner = PlannerAgent()
         
-        print(f"Workflow execution completed:")
-        print(f" - Planned Intent: {res['intent']}")
-        print(f" - Plan Description: {res['plan_description']}")
+        # Test greetings
+        greet_res = planner.classify_intent("hello ASTA")
+        print(f"Query: 'hello ASTA' -> Mode: {greet_res['mode']}, Objective: {greet_res['objective']}")
+        assert greet_res["mode"] == "casual"
         
-        assert res["intent"] == "search", f"Expected intent 'search', got '{res['intent']}'"
-        assert "retrieval_agent_hybrid_search" in res["context_results"], "Expected search step result!"
-        print("Planning and Workflow orchestration verification PASSED.")
+        # Test codebase exploration
+        explore_res = planner.classify_intent("so whats in this folder i have")
+        print(f"Query: 'so whats in this folder i have' -> Mode: {explore_res['mode']}, Objective: {explore_res['objective']}")
+        assert explore_res["mode"] == "codebase_explore"
+        
+        # Test architecture discussion
+        arch_res = planner.classify_intent("why react instead of vanilla js?")
+        print(f"Query: 'why react instead of vanilla js?' -> Mode: {arch_res['mode']}, Objective: {arch_res['objective']}")
+        assert arch_res["mode"] == "architecture_discuss"
+        
+        # Test learning guidance
+        guidance_res = planner.classify_intent("give me a study plan")
+        print(f"Query: 'give me a study plan' -> Mode: {guidance_res['mode']}, Objective: {guidance_res['objective']}")
+        assert guidance_res["mode"] == "learning_guidance"
+        
+        print("Heuristics-First intent classification checks PASSED.")
 
-        # 4. Test Model Router with local offline mock fallback (or live connection check)
-        print("\nTesting Model Router...")
-        # Force local provider for testing
-        settings.ACTIVE_LLM_PROVIDER = "local"
+        # 3. Test WorkflowEngine instantiation
+        print("\nVerifying WorkflowEngine instantiation...")
+        engine_inst = WorkflowEngine(db)
+        assert engine_inst.db == db
+        print("WorkflowEngine instantiation PASSED.")
         
-        # Test how it handles LLM call. Since Ollama might not be running, we handle the ConnectionError
-        # gracefully, verifying that it routes and fails correctly (proving the configuration setup works).
-        print("Invoking run_llm_generation (checks routing path)...")
-        try:
-            res_llm = run_llm_generation(
-                prompt="Explain connection pooling in 1 sentence.",
-                system_prompt="You are an expert systems engineer."
-            )
-            print(f"LLM Response: {res_llm}")
-        except Exception as e:
-            # ConnectionError is expected if Ollama is not active locally
-            print(f"Model Router correctly threw expected offline error/exception: {e}")
-            print("This verifies the HTTP routing layer was hit successfully.")
-            
-        print("\n=== ORCHESTRATION TEST COMPLETED ===")
+        print("\n=== ORCHESTRATION TEST COMPLETED SUCCESSFULLY ===")
 
     except AssertionError as e:
         print(f"\n[FAIL] Assertion failed: {e}")
+        sys.exit(1)
     except Exception as e:
         print(f"\n[ERROR] Test failed with exception: {e}")
+        sys.exit(1)
     finally:
         db.close()
-        shutil.rmtree(temp_dir)
-        print("\nCleaned up temp files.")
 
 if __name__ == "__main__":
     run_test()

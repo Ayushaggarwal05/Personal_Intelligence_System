@@ -13,7 +13,8 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.database.session import SessionLocal, Base, engine
 from app.services.workspace_service import WorkspaceService
-from app.orchestrator.model_router import model_router
+from app.orchestrator.model_router import ModelRouter
+model_router = ModelRouter()
 from app.agents.planner_agent import PlannerAgent
 from app.database.models import Project
 

@@ -40,6 +40,14 @@ class ReflectionAgent:
                 validated_keywords.append(kw)
 
         scorecard["missing_keywords"] = validated_keywords
+
+        # Standardize suggestions to always be a string (database schema and frontend expect a string)
+        suggestions = scorecard.get("suggestions", "")
+        if isinstance(suggestions, list):
+            scorecard["suggestions"] = "\n".join([f"- {s}" for s in suggestions])
+        elif not isinstance(suggestions, str):
+            scorecard["suggestions"] = str(suggestions)
+
         return scorecard
 
 reflection_agent = ReflectionAgent()
