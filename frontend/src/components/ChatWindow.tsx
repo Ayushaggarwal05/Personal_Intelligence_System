@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Send, Bot, User, Cpu } from "lucide-react";
+import { Send, Bot, User } from "lucide-react";
 
 interface Message {
   role: "user" | "assistant";
@@ -10,206 +10,462 @@ interface ChatWindowProps {
   projectId: string | null;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content:
-        "Hello! I am ASTA, your engineering memory coach. Please register a codebase workspace path, and we can discuss the implementation details, system architecture, and trade-offs of your project.",
-    },
-  ]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
+/* ── Inline markdown parser ──────────────────────────────── */
+const parseInline = (text: string): React.ReactNode[] => {
+  const codeParts = text.split(/(`[^`]+`)/g);
+  return codeParts.flatMap((part, i) => {
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={i}
+          style={{
+            background: 'rgba(77,124,115,0.15)',
+            border: '1px solid rgba(77,124,115,0.2)',
+            borderRadius: 4,
+            padding: '1px 6px',
+            fontSize: '0.85em',
+            fontFamily: 'JetBrains Mono, monospace',
+            color: 'var(--accent-hover)',
+          }}
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
+    return boldParts.map((b, bi) =>
+      b.startsWith("**") && b.endsWith("**")
+        ? <strong key={`${i}-${bi}`} style={{ fontWeight: 600, color: 'var(--txt-primary)' }}>{b.slice(2, -2)}</strong>
+        : b
+    );
+  });
+};
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+const parseMarkdown = (text: string): React.ReactNode =>
+  text.split("\n").map((line, idx) => {
+    const hm = line.match(/^(#{1,6})\s+(.*)$/);
+    if (hm) {
+      const lvl = hm[1].length;
+      const sz  = lvl === 1 ? 14 : lvl === 2 ? 13 : 12;
+      return (
+        <p key={idx} style={{ margin: '10px 0 4px', fontFamily: 'Manrope, Inter, sans-serif', fontWeight: 700, fontSize: sz, color: 'var(--txt-primary)' }}>
+          {parseInline(hm[2])}
+        </p>
+      );
+    }
+    const lm = line.match(/^[-*]\s+(.*)$/);
+    if (lm) return (
+      <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '3px 0', paddingLeft: 4 }}>
+        <span style={{ color: 'var(--accent)', fontSize: 10, marginTop: 4, flexShrink: 0 }}>▸</span>
+        <span style={{ fontSize: 12, color: 'var(--txt-second)', lineHeight: 1.7 }}>{parseInline(lm[1])}</span>
+      </div>
+    );
+    if (line.trim() === "") return <div key={idx} style={{ height: 6 }} />;
+    return (
+      <p key={idx} style={{ margin: '2px 0', fontSize: 12, color: 'var(--txt-second)', lineHeight: 1.75 }}>
+        {parseInline(line)}
+      </p>
+    );
+  });
+
+/* ── Code block ─────────────────────────────────────────── */
+const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, code }) => {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(code);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
   };
+  return (
+    <div
+      style={{
+        margin: '12px 0',
+        borderRadius: 12,
+        overflow: 'hidden',
+        border: '1px solid rgba(255,255,255,0.07)',
+        boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '7px 14px',
+          background: '#1C2420',
+          borderBottom: '1px solid rgba(255,255,255,0.06)',
+        }}
+      >
+        <span style={{ fontSize: 9, color: 'var(--txt-muted)', fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          {language}
+        </span>
+        <button
+          onClick={copy}
+          style={{
+            fontSize: 9,
+            color: copied ? 'var(--success)' : 'var(--txt-disabled)',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.06)',
+            borderRadius: 5,
+            padding: '2px 8px',
+            cursor: 'pointer',
+            fontFamily: 'JetBrains Mono, monospace',
+            transition: 'color 220ms ease',
+          }}
+        >
+          {copied ? '✓ copied' : 'copy'}
+        </button>
+      </div>
+      <pre
+        style={{
+          margin: 0,
+          padding: '14px 16px',
+          background: '#161D1A',
+          fontSize: 11,
+          lineHeight: 1.7,
+          color: '#CAD2CE',
+          fontFamily: 'JetBrains Mono, monospace',
+          overflowX: 'auto',
+        }}
+      >
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+};
+
+/* ── Full content renderer ──────────────────────────────── */
+const renderContent = (content: string) => {
+  if (!content) return null;
+  const parts = content.split(/(```[\s\S]*?```)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("```") && part.endsWith("```")) {
+      const lines     = part.slice(3, -3).trim().split("\n");
+      const firstLine = lines[0].trim();
+      let lang = "code", codeLines = lines;
+      if (firstLine && !firstLine.includes(" ") && firstLine.length < 20) {
+        lang = firstLine; codeLines = lines.slice(1);
+      }
+      return <CodeBlock key={i} language={lang} code={codeLines.join("\n")} />;
+    }
+    return <div key={i}>{parseMarkdown(part)}</div>;
+  });
+};
+
+/* ── Suggestion section parser ───────────────────────────── */
+const splitSuggestions = (content: string): { main: string; questions: string[] } => {
+  const marker   = "consider asking:";
+  const markerIdx = content.toLowerCase().indexOf(marker);
+  if (markerIdx === -1) return { main: content, questions: [] };
+
+  const headerStart = content.slice(0, markerIdx).lastIndexOf("\nTo ");
+  const splitAt     = headerStart > 0 ? headerStart : markerIdx - 30;
+  if (splitAt <= 0) return { main: content, questions: [] };
+
+  const main        = content.slice(0, splitAt).trim();
+  const followUp    = content.slice(splitAt);
+  const questions   = followUp
+    .split("\n")
+    .map(l => l.trim().match(/^\d+\.\s+(.+)$/)?.[1])
+    .filter(Boolean) as string[];
+  return { main, questions };
+};
+
+/* ── Typing indicator ───────────────────────────────────── */
+const TypingIndicator = () => (
+  <div className="flex items-center gap-1.5" style={{ padding: '4px 0' }}>
+    {[0, 1, 2].map(i => <div key={i} className="typing-dot" />)}
+  </div>
+);
+
+/* ════════════════════════════════════════════════════════════ */
+export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
+  const [messages, setMessages] = useState<Message[]>([{
+    role: "assistant",
+    content: "Hello! I'm ASTA, your engineering mentor. Register a codebase workspace to begin exploring architecture, trade-offs, and implementation details of your project.",
+  }]);
+  const [input,     setInput]     = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const wsRef     = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
 
   useEffect(() => {
     const ws = new WebSocket("ws://localhost:8000/api/ws");
     wsRef.current = ws;
-
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        if (payload.type === "token_stream") {
-          // Streaming hooks
-        }
-      } catch (err) {
-        // Fallback
-      }
-    };
-
-    return () => {
-      ws.close();
-    };
+    ws.onmessage = () => {};
+    return () => ws.close();
   }, []);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || !projectId || isLoading) return;
-
-    const userMsg = input.trim();
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
-    setInput("");
+  /* ── Core streaming fetch ─────────────────────────────── */
+  const streamQuery = async (query: string, history: Message[]) => {
     setIsLoading(true);
-
+    setMessages(prev => [...prev, { role: "assistant", content: "" }]);
     try {
-      // Append initial empty assistant message for real-time streaming accumulation
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
       const res = await fetch("http://localhost:8000/api/chat/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           project_id: projectId,
-          query: userMsg,
-          history: messages.map(m => ({ role: m.role, content: m.content })),
+          query,
+          history: history.map(m => ({ role: m.role, content: m.content })),
         }),
       });
-
       if (res.ok && res.body) {
-        const reader = res.body.getReader();
+        const reader  = res.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let done = false;
-        let accumulatedText = "";
-
-        while (!done) {
-          const { value, done: readerDone } = await reader.read();
-          done = readerDone;
-          if (value) {
-            const chunk = decoder.decode(value, { stream: true });
-            accumulatedText += chunk;
-            setMessages((prev) => {
-              const updated = [...prev];
-              updated[updated.length - 1] = {
-                role: "assistant",
-                content: accumulatedText,
-              };
-              return updated;
-            });
-          }
+        let accumulated = "";
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          accumulated += decoder.decode(value, { stream: true });
+          setMessages(prev => {
+            const u = [...prev];
+            u[u.length - 1] = { role: "assistant", content: accumulated };
+            return u;
+          });
         }
       } else {
-        setMessages((prev) => [
+        setMessages(prev => [
           ...prev.slice(0, -1),
-          {
-            role: "assistant",
-            content:
-              "Sorry, I encountered an issue querying the model. Please check Ollama provider status.",
-          },
+          { role: "assistant", content: "Sorry — I encountered an issue querying the model. Please check your Ollama connection." },
         ]);
       }
-    } catch (err) {
-      setMessages((prev) => [
+    } catch {
+      setMessages(prev => [
         ...prev.slice(0, -1),
-        {
-          role: "assistant",
-          content:
-            "Failed to connect to the backend server. Is the Uvicorn application online?",
-        },
+        { role: "assistant", content: "Failed to connect to the backend server. Is Uvicorn running on port 8000?" },
       ]);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = input.trim();
+    if (!q || !projectId || isLoading) return;
+    const history = [...messages];
+    setMessages(prev => [...prev, { role: "user", content: q }]);
+    setInput("");
+    await streamQuery(q, history);
+  };
+
+  const handleSuggestionClick = async (q: string) => {
+    if (!projectId || isLoading) return;
+    const history = [...messages];
+    setMessages(prev => [...prev, { role: "user", content: q }]);
+    await streamQuery(q, history);
+  };
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-black/10 overflow-hidden">
-      {/* Header */}
-      <div className="p-4 border-b border-white/10 flex items-center gap-2 bg-bgCard/30">
-        <Bot size={20} className="text-accentPurple" />
-        <div className="flex flex-col">
-          <h2 className="text-sm font-semibold text-gray-100 font-outfit">
-            Architecture & Memory Explainer
-          </h2>
-          <span className="text-[10px] text-gray-400">
-            Discussing frameworks and design structures
-          </span>
+    <div
+      className="flex flex-col h-full overflow-hidden"
+      style={{ background: 'var(--bg-panel)' }}
+    >
+      {/* Chat Header */}
+      <div
+        className="flex items-center gap-3 px-6 py-4 flex-shrink-0"
+        style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-sidebar)' }}
+      >
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(77,124,115,0.18)', border: '1px solid rgba(77,124,115,0.25)' }}
+        >
+          <Bot size={16} style={{ color: 'var(--sage)' }} />
+        </div>
+        <div>
+          <div className="font-heading font-semibold" style={{ fontSize: 13, color: 'var(--txt-primary)' }}>
+            Architecture &amp; Memory Explainer
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--txt-disabled)', fontFamily: 'JetBrains Mono, monospace' }}>
+            Design trade-offs · Implementation details · Interview prep
+          </div>
         </div>
       </div>
 
-      {/* Messages viewport */}
-      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-        {messages.map((msg, idx) => (
+      {/* Message Viewport */}
+      <div
+        className="flex-1 overflow-y-auto chat-bg"
+        style={{ padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 16 }}
+      >
+        {messages.map((msg, idx) => {
+          const { main, questions } = msg.role === "assistant"
+            ? splitSuggestions(msg.content)
+            : { main: msg.content, questions: [] };
+
+          const isUser = msg.role === "user";
+
+          return (
+            <div
+              key={idx}
+              className="animate-fade-in"
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                flexDirection: isUser ? 'row-reverse' : 'row',
+                maxWidth: '88%',
+                alignSelf: isUser ? 'flex-end' : 'flex-start',
+              }}
+            >
+              {/* Avatar */}
+              <div
+                className="flex-shrink-0 rounded-full flex items-center justify-center"
+                style={{
+                  width: 30,
+                  height: 30,
+                  background: isUser
+                    ? 'rgba(77,124,115,0.12)'
+                    : 'rgba(152,182,167,0.10)',
+                  border: isUser
+                    ? '1px solid rgba(77,124,115,0.25)'
+                    : '1px solid rgba(152,182,167,0.18)',
+                }}
+              >
+                {isUser
+                  ? <User size={14} style={{ color: 'var(--accent-hover)' }} />
+                  : <Bot  size={14} style={{ color: 'var(--sage)' }} />
+                }
+              </div>
+
+              {/* Bubble */}
+              <div
+                style={{
+                  borderRadius: isUser ? '18px 4px 18px 18px' : '4px 18px 18px 18px',
+                  padding: '12px 16px',
+                  background: isUser
+                    ? 'rgba(77,124,115,0.11)'
+                    : 'var(--bg-card)',
+                  border: isUser
+                    ? '1px solid rgba(77,124,115,0.22)'
+                    : '1px solid rgba(255,255,255,0.05)',
+                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                  backdropFilter: 'blur(6px)',
+                  minWidth: 0,
+                  flex: 1,
+                }}
+              >
+                {renderContent(main)}
+
+                {/* Suggested questions */}
+                {questions.length > 0 && (
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontSize: 9, color: 'var(--txt-disabled)', fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+                      💡 Explore further
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {questions.map((q, qi) => (
+                        <button
+                          key={qi}
+                          onClick={() => handleSuggestionClick(q)}
+                          style={{
+                            textAlign: 'left',
+                            fontSize: 11,
+                            color: 'var(--txt-second)',
+                            background: 'var(--bg-panel)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 10,
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            fontFamily: 'Inter, sans-serif',
+                            lineHeight: 1.5,
+                            transition: 'all 220ms ease',
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-focus)';
+                            (e.currentTarget as HTMLButtonElement).style.color = 'var(--txt-primary)';
+                            (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)';
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
+                            (e.currentTarget as HTMLButtonElement).style.color = 'var(--txt-second)';
+                            (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-panel)';
+                          }}
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* Typing indicator */}
+        {isLoading && (
           <div
-            key={idx}
-            className={`flex gap-3 max-w-[80%] ${
-              msg.role === "user"
-                ? "self-end flex-row-reverse"
-                : "self-start flex-row"
-            } animate-fade-in`}
+            className="animate-fade-in"
+            style={{ display: 'flex', alignItems: 'flex-start', gap: 12, maxWidth: '88%' }}
           >
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border ${
-                msg.role === "user"
-                  ? "bg-accentCyan/10 border-accentCyan"
-                  : "bg-accentPurple/10 border-accentPurple"
-              }`}
+              className="flex-shrink-0 rounded-full flex items-center justify-center"
+              style={{
+                width: 30,
+                height: 30,
+                background: 'rgba(152,182,167,0.10)',
+                border: '1px solid rgba(152,182,167,0.18)',
+              }}
             >
-              {msg.role === "user" ? (
-                <User size={16} className="text-accentCyan" />
-              ) : (
-                <Bot size={16} className="text-accentPurple" />
-              )}
+              <Bot size={14} style={{ color: 'var(--sage)' }} />
             </div>
-
             <div
-              className={`border border-white/10 p-3 rounded-2xl text-xs leading-relaxed font-sans ${
-                msg.role === "user"
-                  ? "bg-white/5 text-gray-200"
-                  : "bg-white/2 text-gray-100"
-              } whitespace-pre-wrap`}
+              style={{
+                borderRadius: '4px 18px 18px 18px',
+                padding: '14px 18px',
+                background: 'var(--bg-card)',
+                border: '1px solid rgba(255,255,255,0.05)',
+              }}
             >
-              {msg.content}
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex gap-3 self-start items-center">
-            <div className="w-8 h-8 rounded-full bg-white/2 border border-white/10 flex items-center justify-center flex-shrink-0">
-              <Cpu size={16} className="animate-spin text-gray-500" />
-            </div>
-            <div className="p-3 text-gray-400 text-xs font-outfit">
-              ASTA is reasoning...
+              <TypingIndicator />
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
+
+        <div ref={bottomRef} />
       </div>
 
-      {/* Input pane */}
+      {/* Input Bar */}
       <form
         onSubmit={handleSend}
-        className="p-4 border-t border-white/10 flex gap-2 bg-bgCard/20"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '14px 20px',
+          borderTop: '1px solid var(--border)',
+          background: 'var(--bg-sidebar)',
+          flexShrink: 0,
+        }}
       >
         <input
           type="text"
           placeholder={
             projectId
-              ? "Ask about design patterns, modules, or files..."
-              : "Register a workspace path to begin..."
+              ? "Ask about architecture, modules, design decisions..."
+              : "Register a workspace to begin..."
           }
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={!projectId || isLoading}
-          className="flex-1 bg-black/20 border border-white/10 rounded-md p-2.5 text-xs text-white outline-none focus:border-accentPurple/50 transition-all"
+          className="asta-input flex-1"
+          style={{ fontSize: 12 }}
         />
         <button
           type="submit"
           disabled={!projectId || isLoading || !input.trim()}
-          className="glow-btn p-2.5 flex items-center justify-center cursor-pointer"
+          className="asta-btn flex-shrink-0"
           style={{
-            opacity: !projectId || isLoading || !input.trim() ? 0.5 : 1,
+            padding: '9px 14px',
+            opacity: !projectId || isLoading || !input.trim() ? 0.38 : 1,
           }}
         >
-          <Send size={16} />
+          <Send size={14} />
         </button>
       </form>
     </div>
