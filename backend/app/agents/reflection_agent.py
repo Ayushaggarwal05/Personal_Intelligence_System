@@ -48,6 +48,13 @@ class ReflectionAgent:
         elif not isinstance(suggestions, str):
             scorecard["suggestions"] = str(suggestions)
 
+        # Standardize model_answer to always be a string (database schema and frontend expect a string)
+        model_answer = scorecard.get("model_answer", "")
+        if isinstance(model_answer, dict):
+            scorecard["model_answer"] = "\n".join([f"### {k}\n{v}" for k, v in model_answer.items()])
+        elif not isinstance(model_answer, str):
+            scorecard["model_answer"] = str(model_answer)
+
         return scorecard
 
 reflection_agent = ReflectionAgent()

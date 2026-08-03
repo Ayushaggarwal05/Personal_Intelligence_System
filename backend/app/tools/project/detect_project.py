@@ -66,6 +66,14 @@ def detect_project_profile(project_path: str) -> Dict[str, Any]:
                             frameworks.append("Django")
                         if "from flask import" in content or "import flask" in content:
                             frameworks.append("Flask")
+                        if "import torch" in content or "from torch" in content:
+                            frameworks.append("PyTorch")
+                        if "import tensorflow" in content or "import tf" in content:
+                            frameworks.append("TensorFlow")
+                        if "import pandas" in content or "import numpy" in content:
+                            frameworks.append("Data Analytics (Pandas/NumPy)")
+                        if "import sklearn" in content or "from sklearn" in content:
+                            frameworks.append("Scikit-Learn (ML)")
                         if "sqlite" in content or "sqlite3" in content:
                             databases.append("SQLite")
                         if "postgresql" in content or "postgres" in content or "psycopg2" in content:
@@ -97,7 +105,7 @@ def detect_project_profile(project_path: str) -> Dict[str, Any]:
     # Derive primary descriptors
     primary_lang = ", ".join(languages) if languages else "Unknown"
     primary_framework = ", ".join(frameworks) if frameworks else "Unknown"
-    primary_db = ", ".join(databases) if databases else "SQLite"
+    primary_db = ", ".join(databases) if databases else "None"
 
     return {
         "project_type": primary_lang,

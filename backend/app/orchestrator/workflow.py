@@ -96,7 +96,32 @@ class WorkflowEngine:
         frontend_deps_str = ", ".join(frontend_deps) if frontend_deps else "None detected."
         backend_deps_str = ", ".join(backend_deps) if backend_deps else "None detected."
 
+        # Add list of filenames (paths only, no contents) to ground ASTA on what files exist
+        project_files_list = [f.relative_path for f in all_project_files]
+        files_tree_str = "\n".join([f"- {path}" for path in project_files_list[:40]])
+        if len(project_files_list) > 40:
+            files_tree_str += f"\n- ... and {len(project_files_list) - 40} more files."
+        
+        # Search for a single README/overview file to read its contents
+        overview_content = ""
+        for f in all_project_files:
+            name_lower = f.relative_path.lower()
+            if "readme" in name_lower or "setup.md" in name_lower or "combinedata" in name_lower:
+                try:
+                    content = read_workspace_file_content(project_path, f.relative_path)
+                    overview_content = f"### Project Overview File ({f.relative_path}):\n{content[:2000]}"
+                    break
+                except Exception:
+                    pass
+
         context_parts = []
+        if overview_content:
+            context_parts.append(overview_content)
+            
+        context_parts.append(
+            f"### Project Directory Structure (Indexed Files):\n{files_tree_str}"
+        )
+
         context_parts.append(
             f"### Codebase Tech Stack & Library Segregation:\n"
             f"- **Frontend Stack Libraries (from package.json)**: {frontend_deps_str}\n"
@@ -159,11 +184,15 @@ class WorkflowEngine:
         else:
             symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
 
+        # Determine framework and database strings, filtering out "Unknown" and "None" strings
+        fw_str = project.framework if (project.framework and project.framework not in {"Unknown", "None"}) else "General Workspace (No specific framework detected)"
+        db_str = project.database_type if (project.database_type and project.database_type != "None") else "None (No database detected)"
+
         # 3. Project Intelligence Agent Layer
         response = self.project_agent.answer_user_query(
             project_name=project.name,
-            framework=project.framework or "Python/FastAPI",
-            database_type=project.database_type or "SQLite",
+            framework=fw_str,
+            database_type=db_str,
             symbols_context=symbols_context,
             user_query=query,
             chat_history=history_context,
@@ -176,8 +205,8 @@ class WorkflowEngine:
         if not is_casual:
             context_data = {
                 "project_name": project.name,
-                "framework": project.framework or "Python/FastAPI",
-                "database_type": project.database_type or "SQLite",
+                "framework": fw_str,
+                "database_type": db_str,
                 "symbols": symbols_context
             }
             try:
@@ -218,12 +247,16 @@ class WorkflowEngine:
         else:
             symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
 
+        # Determine framework and database strings, filtering out "Unknown" and "None" strings
+        fw_str = project.framework if (project.framework and project.framework not in {"Unknown", "None"}) else "General Workspace (No specific framework detected)"
+        db_str = project.database_type if (project.database_type and project.database_type != "None") else "None (No database detected)"
+
         # 3. Project Intelligence Agent Layer
         full_response_chunks = []
         for token in self.project_agent.answer_user_query_stream(
             project_name=project.name,
-            framework=project.framework or "Python/FastAPI",
-            database_type=project.database_type or "SQLite",
+            framework=fw_str,
+            database_type=db_str,
             symbols_context=symbols_context,
             user_query=query,
             chat_history=history_context,
@@ -240,8 +273,8 @@ class WorkflowEngine:
         if not is_casual:
             context_data = {
                 "project_name": project.name,
-                "framework": project.framework or "Python/FastAPI",
-                "database_type": project.database_type or "SQLite",
+                "framework": fw_str,
+                "database_type": db_str,
                 "symbols": symbols_context
             }
             try:
