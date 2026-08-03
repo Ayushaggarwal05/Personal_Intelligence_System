@@ -45,46 +45,41 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
   };
 
   return (
-    <div
-      className="rounded-card flex flex-col overflow-hidden flex-1 min-h-0"
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid rgba(255,255,255,0.05)',
-        padding: '16px',
-        gap: '12px',
-        display: 'flex',
-        flexDirection: 'column',
-      }}
-    >
+    <div className="asta-sidebar-card flex flex-col overflow-hidden flex-1 min-h-0 gap-4">
       {/* Header */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <BookOpen size={15} style={{ color: 'var(--accent-hover)' }} />
-        <span
-          className="font-heading font-semibold"
-          style={{ fontSize: 12, color: 'var(--txt-second)' }}
-        >
-          Code Finder
+      <div className="flex flex-col gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 text-txtPrimary">
+          <BookOpen size={16} style={{ color: 'var(--accent-hover)' }} />
+          <span
+            className="font-heading font-semibold"
+            style={{ fontSize: 13, color: 'var(--txt-primary)', letterSpacing: '0.01em' }}
+          >
+            Code Finder
+          </span>
+        </div>
+        <span style={{ fontSize: 11.5, color: 'var(--txt-muted)', lineHeight: '1.4' }}>
+          Search files, classes, functions and routes instantly.
         </span>
       </div>
 
       {/* Search Input */}
       <div className="relative flex-shrink-0">
+        <Search
+          size={14}
+          onClick={() => handleSearch(query)}
+          className="absolute left-4 cursor-pointer transition-colors"
+          style={{ top: '50%', transform: 'translateY(-50%)', color: 'var(--txt-disabled)', zIndex: 10 }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--sage)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--txt-disabled)')}
+        />
         <input
           type="text"
           placeholder="Search symbols or files..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
-          className="asta-input"
-          style={{ paddingRight: 36 }}
-        />
-        <Search
-          size={13}
-          onClick={() => handleSearch(query)}
-          className="absolute right-3 cursor-pointer transition-colors"
-          style={{ top: '50%', transform: 'translateY(-50%)', color: 'var(--txt-disabled)' }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--sage)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--txt-disabled)')}
+          className="asta-input-premium"
+          style={{ paddingLeft: 42 }}
         />
 
         {/* Autocomplete */}
@@ -92,11 +87,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
           <div
             className="absolute left-0 right-0 z-20 overflow-y-auto"
             style={{
-              top: 42,
+              top: 54,
               background: 'var(--bg-card)',
               border: '1px solid var(--border)',
-              borderRadius: 10,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+              borderRadius: 16,
+              boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
               maxHeight: 160,
             }}
           >
@@ -104,12 +99,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
               <div
                 key={i}
                 onClick={() => handleSearch(s)}
-                className="px-3 py-2 cursor-pointer transition-colors"
+                className="px-4 py-2.5 cursor-pointer transition-colors text-xs"
                 style={{
-                  fontSize: 11,
                   color: 'var(--txt-second)',
                   fontFamily: 'JetBrains Mono, monospace',
-                  borderBottom: i < suggestions.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                  borderBottom: i < suggestions.length - 1 ? '1px solid var(--border)' : 'none',
                 }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
@@ -122,21 +116,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
       </div>
 
       {/* Filter chips */}
-      <div className="flex gap-1.5 flex-shrink-0 flex-wrap">
+      <div className="flex gap-2 flex-shrink-0 flex-wrap">
         {FILTERS.map((f) => {
           const active = filterType === f.key;
           return (
             <button
               key={String(f.key)}
               onClick={() => setFilterType(f.key as string | null)}
-              className="px-2.5 py-1 rounded-chip font-heading font-semibold transition-all cursor-pointer"
-              style={{
-                fontSize: 10,
-                color: active ? 'var(--sage)' : 'var(--txt-disabled)',
-                background: active ? 'rgba(77,124,115,0.14)' : 'transparent',
-                border: active ? '1px solid rgba(77,124,115,0.28)' : '1px solid var(--border)',
-                transition: 'all 220ms ease',
-              }}
+              className={active ? 'asta-chip-active' : 'asta-chip-inactive'}
             >
               {f.label}
             </button>
@@ -145,26 +132,49 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-2 min-h-0">
+      <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 min-h-0 scrollbar-thin">
         {results.length === 0 ? (
-          <div
-            className="text-center py-6 font-heading"
-            style={{ fontSize: 11, color: 'var(--txt-disabled)' }}
-          >
-            Enter a search parameter above
+          <div className="flex flex-col items-center justify-center text-center py-8 px-2 select-none">
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3.5"
+              style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <Search size={20} className="text-[var(--txt-disabled)] opacity-80" />
+            </div>
+            <h3
+              className="font-heading font-semibold mb-1"
+              style={{ fontSize: 13, color: 'var(--txt-second)' }}
+            >
+              Search your codebase
+            </h3>
+            <p
+              className="text-[var(--txt-disabled)] leading-relaxed"
+              style={{ fontSize: 10.5 }}
+            >
+              Find classes, files, functions, routes and symbols instantly.
+            </p>
           </div>
         ) : (
           results.map((res, i) => (
             <div
               key={i}
-              className="flex items-start gap-2.5 rounded-input px-2.5 py-2 transition-colors"
+              className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 transition-all cursor-pointer"
               style={{
-                background: 'var(--bg-panel)',
-                border: '1px solid rgba(255,255,255,0.04)',
-                transition: 'border-color 220ms ease',
+                background: 'rgba(0, 0, 0, 0.1)',
+                border: '1px solid var(--border)',
+                transition: 'all 220ms ease',
               }}
-              onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.09)')}
-              onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(255,255,255,0.04)')}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-hover)';
+                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(0,0,0,0.1)';
+                e.currentTarget.style.borderColor = 'var(--border)';
+              }}
             >
               {res.type === 'file'
                 ? <FileText size={14} style={{ color: 'var(--accent-hover)', marginTop: 2 }} />

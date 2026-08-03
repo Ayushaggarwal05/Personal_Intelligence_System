@@ -14,7 +14,7 @@ interface WorkspaceManagerProps {
 
 export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
   projectId, setProjectId, projectPath, setProjectPath,
-  stats, setStats, isScanning, setIsScanning,
+  stats: _stats, setStats, isScanning, setIsScanning,
 }) => {
   const [inputPath, setInputPath] = useState('');
   const [error,     setError]     = useState<string | null>(null);
@@ -68,36 +68,35 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
   };
 
   return (
-    <div
-      className="rounded-card flex flex-col gap-3"
-      style={{
-        background: 'var(--bg-card)',
-        border: '1px solid rgba(255,255,255,0.05)',
-        padding: '16px',
-      }}
-    >
+    <div className="asta-sidebar-card flex flex-col gap-4">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Folder size={15} style={{ color: 'var(--sage)' }} />
+      <div className="flex items-center gap-2 text-txtPrimary">
+        <Folder size={16} style={{ color: 'var(--sage)' }} />
         <span
           className="font-heading font-semibold"
-          style={{ fontSize: 12, color: 'var(--txt-second)' }}
+          style={{ fontSize: 13, color: 'var(--txt-primary)', letterSpacing: '0.01em' }}
         >
-          Workspace Control
+          Workspace
         </span>
       </div>
 
       {!projectId ? (
         /* ── Registration Form ── */
-        <form onSubmit={handleRegister} className="flex flex-col gap-2">
+        <form onSubmit={handleRegister} className="flex flex-col gap-4">
+          <span style={{ fontSize: 11.5, color: 'var(--txt-muted)', lineHeight: '1.4' }}>
+            Connect your project folder to begin.
+          </span>
           <input
             type="text"
             placeholder="Absolute folder path..."
             value={inputPath}
             onChange={(e) => setInputPath(e.target.value)}
-            className="asta-input"
+            className="asta-input-premium"
           />
-          <button type="submit" className="asta-btn w-full">
+          <button
+            type="submit"
+            className="asta-btn-premium w-full"
+          >
             Register &amp; Scan
           </button>
           {error && (
@@ -108,25 +107,24 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
         </form>
       ) : (
         /* ── Registered State ── */
-        <div className="flex flex-col gap-3">
-
+        <div className="flex flex-col gap-4">
           {/* Active Path */}
           <div
-            className="rounded-input px-3 py-2"
+            className="rounded-2xl px-4 py-3"
             style={{
-              background: 'var(--bg-panel)',
+              background: 'rgba(0, 0, 0, 0.2)',
               border: '1px solid var(--border)',
             }}
           >
-            <div className="flex items-center gap-1.5 mb-1">
-              <CheckCircle2 size={10} style={{ color: 'var(--success)' }} />
-              <span style={{ fontSize: 9, color: 'var(--txt-disabled)', fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <CheckCircle2 size={12} style={{ color: 'var(--success)' }} />
+              <span style={{ fontSize: 10, color: 'var(--txt-muted)', fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                 Active Dir
               </span>
             </div>
             <code
               className="break-all block"
-              style={{ fontSize: 10, color: 'var(--accent-hover)', fontFamily: 'JetBrains Mono, monospace', lineHeight: 1.5 }}
+              style={{ fontSize: 11, color: 'var(--sage)', fontFamily: 'JetBrains Mono, monospace', lineHeight: 1.4 }}
             >
               {projectPath}
             </code>
@@ -136,33 +134,15 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
           <button
             onClick={() => handleScan(projectId, projectPath)}
             disabled={isScanning}
-            className="asta-btn w-full flex items-center justify-center gap-2"
+            className="asta-btn-premium w-full flex items-center justify-center gap-2"
           >
-            <RefreshCw size={13} className={isScanning ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={isScanning ? 'animate-spin' : ''} />
             {isScanning ? 'Indexing...' : 'Rescan Codebase'}
           </button>
-
-          {/* Stats Grid */}
-          {stats && (
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: 'Files Indexed', value: stats.total_files  || 0, accent: 'var(--sage)' },
-                { label: 'Est. Tokens',   value: stats.total_tokens || 0, accent: 'var(--accent-hover)' },
-              ].map(({ label, value, accent }) => (
-                <div
-                  key={label}
-                  className="rounded-chip px-2.5 py-2"
-                  style={{ background: 'var(--bg-panel)', border: '1px solid var(--border)' }}
-                >
-                  <span style={{ fontSize: 9, color: 'var(--txt-disabled)', display: 'block', marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {label}
-                  </span>
-                  <span className="font-heading font-bold" style={{ fontSize: 15, color: accent }}>
-                    {value.toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </div>
+          {error && (
+            <span style={{ fontSize: 10, color: 'var(--error)', fontFamily: 'JetBrains Mono, monospace' }}>
+              {error}
+            </span>
           )}
         </div>
       )}

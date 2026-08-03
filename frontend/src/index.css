@@ -7,17 +7,17 @@
 /* ─── Design Tokens ─────────────────────────────────────────── */
 :root {
   /* Backgrounds */
-  --bg-app:     #131816;
-  --bg-sidebar: #1A211E;
-  --bg-panel:   #202824;
-  --bg-card:    #262F2A;
-  --bg-hover:   #313B35;
+  --bg-app:      #131816;
+  --bg-sidebar:  #1A211E;
+  --bg-card:     #202824;
+  --bg-elevated: #262F2A;
+  --bg-hover:    #313B35;
 
   /* Accents */
   --accent:       #4D7C73;
   --accent-hover: #5D8F85;
   --sage:         #98B6A7;
-  --sage-soft:    #B8CEC4;
+  --sage-soft:    #CAD2CE;
 
   /* Text */
   --txt-primary:  #F4F6F5;
@@ -26,7 +26,7 @@
   --txt-disabled: #67736D;
 
   /* Borders */
-  --border:       #303935;
+  --border:       rgba(255,255,255,0.05);
   --border-focus: #5E8C82;
 
   /* Status */
@@ -157,12 +157,14 @@ code, pre, kbd {
   box-shadow: 0 0 0 3px rgba(94,140,130,0.12);
 }
 
-/* ─── Chat Radial Background ─────────────────────────────────── */
+/* ─── Chat Viewport Background ───────────────────────────────── */
 .chat-bg {
-  background:
-    radial-gradient(ellipse 60% 40% at 20% 80%, rgba(77,124,115,0.06) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 80% 20%, rgba(152,182,167,0.04) 0%, transparent 65%),
-    var(--bg-panel);
+  background: var(--bg-app);
+}
+
+/* ─── Sidebar Background ──────────────────────────────────────── */
+.sidebar-bg {
+  background: var(--bg-sidebar);
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────── */
@@ -203,3 +205,141 @@ code, pre, kbd {
   0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; }
   40%            { transform: scale(1);   opacity: 1; }
 }
+
+/* ─── Premium Chat Input Capsule ────────────────────────────── */
+.asta-chat-input-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto 1.5rem;
+  background: rgba(22, 30, 26, 0.65);
+  border: 1px solid rgba(143, 186, 166, 0.12);
+  border-radius: 28px;
+  padding: 6px 6px 6px 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(16px);
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.asta-chat-input-container:focus-within {
+  border-color: rgba(143, 186, 166, 0.35);
+  box-shadow: 0 8px 32px rgba(96, 165, 150, 0.08);
+}
+
+/* ─── Premium Cards & Inner Layout ───────────────────────────── */
+.asta-sidebar-card {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0 4px;
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Premium Desktop inputs & buttons ───────────────────────── */
+.asta-input-premium {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 38px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--txt-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 11.5px;
+  padding: 0 12px;
+  outline: none;
+  transition: border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.asta-input-premium::placeholder {
+  color: var(--txt-disabled);
+}
+
+.asta-input-premium:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2.5px rgba(94, 140, 130, 0.12);
+}
+
+.asta-btn-premium {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 38px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+  border: 1px solid rgba(255,255,255,0.06);
+  color: var(--txt-primary);
+  font-family: 'Manrope', sans-serif;
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  padding: 0 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 220ms ease, box-shadow 220ms ease, background 220ms ease;
+}
+
+.asta-btn-premium:hover:not(:disabled) {
+  transform: translateY(-0.5px);
+  box-shadow: 0 4px 10px rgba(77, 124, 115, 0.2);
+}
+
+.asta-btn-premium:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+.asta-btn-premium:disabled {
+  background: var(--bg-hover);
+  color: var(--txt-disabled);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ─── Premium Filter Chips ───────────────────────────────────── */
+.asta-chip-active {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 11px;
+  background: var(--accent);
+  color: #ffffff;
+  border-radius: 9999px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 220ms ease;
+}
+
+.asta-chip-inactive {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 11px;
+  background: transparent;
+  color: var(--txt-muted);
+  border-radius: 9999px;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: all 220ms ease;
+}
+
+.asta-chip-inactive:hover {
+  color: var(--txt-primary);
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+

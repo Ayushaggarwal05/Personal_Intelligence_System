@@ -8,32 +8,32 @@ export default {
     extend: {
       colors: {
         // Backgrounds — elevation hierarchy
-        bgApp:      '#131816',
-        bgSidebar:  '#1A211E',
-        bgPanel:    '#202824',
-        bgCard:     '#262F2A',
-        bgHover:    '#313B35',
+        bgApp:      'var(--bg-app)',
+        bgSidebar:  'var(--bg-sidebar)',
+        bgPanel:    'var(--bg-panel)',
+        bgCard:     'var(--bg-card)',
+        bgHover:    'var(--bg-hover)',
 
         // Accents
-        accent:     '#4D7C73',
-        accentHover:'#5D8F85',
-        sage:       '#98B6A7',
-        sageSoft:   '#B8CEC4',
+        accent:     'var(--accent)',
+        accentHover:'var(--accent-hover)',
+        sage:       'var(--sage)',
+        sageSoft:   'var(--sage-soft)',
 
         // Text
-        txtPrimary: '#F4F6F5',
-        txtSecond:  '#CAD2CE',
-        txtMuted:   '#9CA8A3',
-        txtDisabled:'#67736D',
+        txtPrimary: 'var(--txt-primary)',
+        txtSecond:  'var(--txt-second)',
+        txtMuted:   'var(--txt-muted)',
+        txtDisabled:'var(--txt-disabled)',
 
         // Borders
-        border:     '#303935',
-        borderFocus:'#5E8C82',
+        border:     'var(--border)',
+        borderFocus:'var(--border-focus)',
 
         // Status
-        success:    '#7FAE8C',
-        warning:    '#D2B96B',
-        error:      '#C96F6F',
+        success:    'var(--success)',
+        warning:    'var(--warning)',
+        error:      'var(--error)',
       },
       fontFamily: {
         sans:    ['Inter', 'sans-serif'],

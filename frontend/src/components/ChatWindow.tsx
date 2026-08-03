@@ -264,29 +264,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
   return (
     <div
       className="flex flex-col h-full overflow-hidden"
-      style={{ background: 'var(--bg-panel)' }}
+      style={{ background: 'var(--bg-app)' }}
     >
-      {/* Chat Header */}
-      <div
-        className="flex items-center gap-3 px-6 py-4 flex-shrink-0"
-        style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg-sidebar)' }}
-      >
-        <div
-          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ background: 'rgba(77,124,115,0.18)', border: '1px solid rgba(77,124,115,0.25)' }}
-        >
-          <Bot size={16} style={{ color: 'var(--sage)' }} />
-        </div>
-        <div>
-          <div className="font-heading font-semibold" style={{ fontSize: 13, color: 'var(--txt-primary)' }}>
-            Architecture &amp; Memory Explainer
-          </div>
-          <div style={{ fontSize: 10, color: 'var(--txt-disabled)', fontFamily: 'JetBrains Mono, monospace' }}>
-            Design trade-offs · Implementation details · Interview prep
-          </div>
-        </div>
-      </div>
-
       {/* Message Viewport */}
       <div
         className="flex-1 overflow-y-auto chat-bg"
@@ -430,44 +409,51 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input Bar */}
-      <form
-        onSubmit={handleSend}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '14px 20px',
-          borderTop: '1px solid var(--border)',
-          background: 'var(--bg-sidebar)',
-          flexShrink: 0,
-        }}
-      >
-        <input
-          type="text"
-          placeholder={
-            projectId
-              ? "Ask about architecture, modules, design decisions..."
-              : "Register a workspace to begin..."
-          }
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          disabled={!projectId || isLoading}
-          className="asta-input flex-1"
-          style={{ fontSize: 12 }}
-        />
-        <button
-          type="submit"
-          disabled={!projectId || isLoading || !input.trim()}
-          className="asta-btn flex-shrink-0"
-          style={{
-            padding: '9px 14px',
-            opacity: !projectId || isLoading || !input.trim() ? 0.38 : 1,
-          }}
+      {/* Floating Input Bar */}
+      <div className="w-full px-6 flex-shrink-0 bg-transparent flex flex-col pt-2 select-none">
+        <form
+          onSubmit={handleSend}
+          className="asta-chat-input-container"
         >
-          <Send size={14} />
-        </button>
-      </form>
+          <input
+            type="text"
+            placeholder={
+              projectId
+                ? "Ask about architecture, modules, design decisions..."
+                : "Register a workspace to begin..."
+            }
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            disabled={!projectId || isLoading}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              width: '100%',
+              color: 'var(--txt-primary)',
+              fontSize: 12.5,
+              fontFamily: 'Inter, sans-serif',
+              paddingRight: 10,
+            }}
+          />
+          <button
+            type="submit"
+            disabled={!projectId || isLoading || !input.trim()}
+            className="flex items-center justify-center rounded-full flex-shrink-0"
+            style={{
+              width: 32,
+              height: 32,
+              background: (!projectId || isLoading || !input.trim()) ? 'transparent' : 'var(--accent)',
+              color: (!projectId || isLoading || !input.trim()) ? 'var(--txt-disabled)' : '#F4F6F5',
+              border: 'none',
+              cursor: (!projectId || isLoading || !input.trim()) ? 'not-allowed' : 'pointer',
+              transition: 'all 200ms ease',
+            }}
+          >
+            <Send size={13} />
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

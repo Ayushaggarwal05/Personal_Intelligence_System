@@ -59,17 +59,9 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId }) => {
   }, [mermaidCode]);
 
   return (
-    <div className="flex-1 flex flex-col h-full p-6 overflow-y-auto bg-black/10 animate-fade-in">
-      <div className="flex items-center gap-2 mb-6">
-        <Layers size={24} className="text-accentCyan" />
-        <div>
-          <h2 className="text-lg font-bold text-gray-100 font-outfit">Architectural Diagram Canvas</h2>
-          <p className="text-xs text-gray-400">Mermaid.js vector graphs parsed from database definitions</p>
-        </div>
-      </div>
-
+    <div className="flex-1 flex flex-col h-full p-6 overflow-y-auto bg-transparent animate-fade-in">
       {/* Selectors */}
-      <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+      <div className="flex gap-2 mb-5 overflow-x-auto pb-1 select-none">
         {[
           { key: 'sequence', label: 'Controller Sequence', icon: <Activity size={14} /> },
           { key: 'er', label: 'Database Schema ER', icon: <Layers size={14} /> },
@@ -79,10 +71,10 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId }) => {
             key={btn.key}
             onClick={() => setDiagType(btn.key as any)}
             disabled={!projectId}
-            className={`px-3 py-2 text-xs rounded border flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`px-3 py-2 text-xs rounded-lg border flex items-center gap-1.5 transition-all cursor-pointer ${
               diagType === btn.key
                 ? 'glow-btn text-white'
-                : 'border-white/10 bg-white/2 text-gray-400 hover:text-white'
+                : 'border-white/5 bg-black/15 text-txtMuted hover:text-txtPrimary'
             }`}
             style={{ opacity: !projectId ? 0.5 : 1 }}
           >
@@ -93,11 +85,11 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId }) => {
       </div>
 
       {/* Rendering viewport */}
-      <div className="glass-panel flex-1 flex items-center justify-center min-h-[300px] bg-bgSidebar p-5 overflow-auto border border-white/10 rounded-xl">
+      <div className="flex-1 flex items-center justify-center min-h-[300px] bg-bgCard p-5 overflow-auto border border-white/5 rounded-2xl shadow-xl">
         {!projectId ? (
-          <span className="text-gray-500 text-xs font-outfit">Register a workspace path to render flow diagrams</span>
+          <span className="text-txtMuted text-xs font-mono">Register a workspace path to render flow diagrams</span>
         ) : isLoading ? (
-          <Cpu size={32} className="animate-spin text-accentCyan" />
+          <Cpu size={32} className="animate-spin text-accent" />
         ) : (
           <div ref={containerRef} className="w-full h-full flex justify-center" />
         )}

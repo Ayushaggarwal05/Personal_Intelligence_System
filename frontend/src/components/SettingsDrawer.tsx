@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, ShieldAlert, Key, Check } from 'lucide-react';
+import { ShieldAlert, Key, Check } from 'lucide-react';
 
 interface SettingsDrawerProps {
   projectId: string | null;
@@ -76,91 +76,88 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
   };
 
   return (
-    <div className="p-4 rounded-xl border border-white/10 bg-bgCard backdrop-blur-md flex flex-col gap-4 max-w-sm m-6 hover:border-white/15 transition-all">
-      <h3 className="flex items-center gap-2 text-sm text-gray-200 font-semibold font-outfit">
-        <Settings size={18} className="text-accentPurple" />
-        System Configurations
-      </h3>
-
-      {/* API Key Configuration Form */}
-      <form onSubmit={handleSaveKeys} className="flex flex-col gap-3">
-        <div>
-          <label className="text-[10px] text-gray-400 block mb-1 font-mono uppercase">
-            GOOGLE GEMINI API KEY
-          </label>
-          <div className="relative">
-            <input
-              type="password"
-              placeholder={hasGeminiKey ? "••••••••••••••••••••" : "Configure Gemini key..."}
-              value={geminiInput}
-              onChange={(e) => setGeminiInput(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-md py-1.5 px-2.5 text-xs text-white outline-none focus:border-accentPurple/50 transition-all font-mono"
-            />
-            {hasGeminiKey && (
-              <span className="absolute right-2.5 top-2 flex items-center gap-1 text-[9px] text-emerald-400 font-mono">
-                <Check size={10} /> Active
-              </span>
-            )}
+    <div className="w-full h-full flex items-center justify-center p-6 select-none animate-fade-in">
+      <div className="p-6 rounded-2xl border border-white/5 bg-bgCard backdrop-blur-md flex flex-col gap-5 max-w-sm w-full shadow-xl hover:border-white/10 transition-all">
+        {/* API Key Configuration Form */}
+        <form onSubmit={handleSaveKeys} className="flex flex-col gap-4">
+          <div>
+            <label className="text-[9px] text-txtMuted block mb-1.5 font-mono uppercase tracking-wider">
+              GOOGLE GEMINI API KEY
+            </label>
+            <div className="relative">
+              <input
+                type="password"
+                placeholder={hasGeminiKey ? "••••••••••••••••••••" : "Configure Gemini key..."}
+                value={geminiInput}
+                onChange={(e) => setGeminiInput(e.target.value)}
+                className="w-full bg-black/25 border border-white/5 rounded-lg py-2 px-3 text-xs text-txtPrimary outline-none focus:border-accent/40 transition-all font-mono"
+              />
+              {hasGeminiKey && (
+                <span className="absolute right-3 top-2.5 flex items-center gap-1 text-[9px] text-success font-mono">
+                  <Check size={10} /> Active
+                </span>
+              )}
+            </div>
           </div>
-        </div>
 
-        <div>
-          <label className="text-[10px] text-gray-400 block mb-1 font-mono uppercase">
-            GROQ API KEY
-          </label>
-          <div className="relative">
-            <input
-              type="password"
-              placeholder={hasGroqKey ? "••••••••••••••••••••" : "Configure Groq key..."}
-              value={groqInput}
-              onChange={(e) => setGroqInput(e.target.value)}
-              className="w-full bg-black/20 border border-white/10 rounded-md py-1.5 px-2.5 text-xs text-white outline-none focus:border-accentPurple/50 transition-all font-mono"
-            />
-            {hasGroqKey && (
-              <span className="absolute right-2.5 top-2 flex items-center gap-1 text-[9px] text-emerald-400 font-mono">
-                <Check size={10} /> Active
-              </span>
-            )}
+          <div>
+            <label className="text-[9px] text-txtMuted block mb-1.5 font-mono uppercase tracking-wider">
+              GROQ API KEY
+            </label>
+            <div className="relative">
+              <input
+                type="password"
+                placeholder={hasGroqKey ? "••••••••••••••••••••" : "Configure Groq key..."}
+                value={groqInput}
+                onChange={(e) => setGroqInput(e.target.value)}
+                className="w-full bg-black/25 border border-white/5 rounded-lg py-2 px-3 text-xs text-txtPrimary outline-none focus:border-accent/40 transition-all font-mono"
+              />
+              {hasGroqKey && (
+                <span className="absolute right-3 top-2.5 flex items-center gap-1 text-[9px] text-success font-mono">
+                  <Check size={10} /> Active
+                </span>
+              )}
+            </div>
           </div>
-        </div>
 
-        <button
-          type="submit"
-          className="glow-btn py-2 text-xs w-full flex items-center justify-center gap-1.5 cursor-pointer font-outfit"
-        >
-          <Key size={12} />
-          Save AI Keys
-        </button>
+          <button
+            type="submit"
+            className="glow-btn py-2 px-3 text-xs w-full flex items-center justify-center gap-1.5 cursor-pointer font-heading font-semibold mt-1"
+          >
+            <Key size={12} />
+            Save AI Keys
+          </button>
 
-        {message && (
-          <span className="text-accentCyan text-[10px] block font-mono text-center mt-1">
-            {message}
+          {message && (
+            <span className="text-sage text-[10px] block font-mono text-center mt-1">
+              {message}
+            </span>
+          )}
+        </form>
+
+        {/* Weak Areas List */}
+        <div className="mt-2 border-t border-white/5 pt-4">
+          <span className="text-[9px] text-txtMuted block mb-2.5 font-mono uppercase tracking-wider">
+            TECHNICAL WEAK TOPICS HISTORY
           </span>
-        )}
-      </form>
-
-      {/* Weak Areas List */}
-      <div className="mt-2 border-t border-white/10 pt-4">
-        <span className="text-[10px] text-gray-400 block mb-2 font-mono uppercase">
-          TECHNICAL WEAK TOPICS HISTORY
-        </span>
-        {weakTopics.length === 0 ? (
-          <div className="bg-white/1 border border-white/5 rounded-md p-2.5 text-xs text-gray-500 flex items-center gap-1.5">
-            <ShieldAlert size={14} />
-            No weak topic areas detected yet
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {weakTopics.map((topic, idx) => (
-              <span
-                key={idx}
-                className="bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-1 rounded-full text-[10px] font-medium"
-              >
-                {topic}
-              </span>
-            ))}
-          </div>
-        )}
+          {weakTopics.length === 0 ? (
+            <div className="bg-black/10 border border-white/5 rounded-lg p-3 text-xs text-txtMuted flex items-center gap-2">
+              <ShieldAlert size={13} className="text-txtDisabled" />
+              No weak topic areas detected yet
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {weakTopics.map((topic, idx) => (
+                <span
+                  key={idx}
+                  className="bg-red-500/10 border border-red-500/20 text-red-400 px-2.5 py-1 rounded-full text-[10px] font-medium"
+                >
+                  {topic}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
