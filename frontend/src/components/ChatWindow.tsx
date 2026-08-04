@@ -35,7 +35,7 @@ const parseInline = (text: string): React.ReactNode[] => {
     const boldParts = part.split(/(\*\*[^*]+\*\*)/g);
     return boldParts.map((b, bi) =>
       b.startsWith("**") && b.endsWith("**")
-        ? <strong key={`${i}-${bi}`} style={{ fontWeight: 600, color: 'var(--txt-primary)' }}>{b.slice(2, -2)}</strong>
+        ? <strong key={`${i}-${bi}`} style={{ fontWeight: 600, color: 'var(--sage)' }}>{b.slice(2, -2)}</strong>
         : b
     );
   });
@@ -43,26 +43,73 @@ const parseInline = (text: string): React.ReactNode[] => {
 
 const parseMarkdown = (text: string): React.ReactNode =>
   text.split("\n").map((line, idx) => {
+    // 1. Headings
     const hm = line.match(/^(#{1,6})\s+(.*)$/);
     if (hm) {
       const lvl = hm[1].length;
-      const sz  = lvl === 1 ? 14 : lvl === 2 ? 13 : 12;
+      const sz  = lvl === 1 ? 15 : lvl === 2 ? 14 : 13;
       return (
-        <p key={idx} style={{ margin: '10px 0 4px', fontFamily: 'Manrope, Inter, sans-serif', fontWeight: 700, fontSize: sz, color: 'var(--txt-primary)' }}>
+        <p
+          key={idx}
+          style={{
+            margin: '18px 0 8px',
+            fontFamily: 'Manrope, Inter, sans-serif',
+            fontWeight: 700,
+            fontSize: sz,
+            color: 'var(--txt-primary)',
+            letterSpacing: '-0.01em',
+          }}
+        >
           {parseInline(hm[2])}
         </p>
       );
     }
+
+    // 2. Blockquotes / Callouts
+    const bq = line.match(/^>\s+(.*)$/);
+    if (bq) {
+      return (
+        <div
+          key={idx}
+          style={{
+            borderLeft: '3px solid var(--accent)',
+            paddingLeft: 14,
+            margin: '12px 0',
+            color: 'var(--txt-second)',
+            fontStyle: 'italic',
+            fontSize: 12,
+            lineHeight: 1.8,
+          }}
+        >
+          {parseInline(bq[1])}
+        </div>
+      );
+    }
+
+    // 3. Bullet lists
     const lm = line.match(/^[-*]\s+(.*)$/);
     if (lm) return (
-      <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '3px 0', paddingLeft: 4 }}>
+      <div key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, margin: '6px 0', paddingLeft: 4 }}>
         <span style={{ color: 'var(--accent)', fontSize: 10, marginTop: 4, flexShrink: 0 }}>▸</span>
-        <span style={{ fontSize: 12, color: 'var(--txt-second)', lineHeight: 1.7 }}>{parseInline(lm[1])}</span>
+        <span style={{ fontSize: 12, color: 'var(--txt-second)', lineHeight: 1.8 }}>{parseInline(lm[1])}</span>
       </div>
     );
-    if (line.trim() === "") return <div key={idx} style={{ height: 6 }} />;
+
+    // 4. Whitespace spacer
+    if (line.trim() === "") return <div key={idx} style={{ height: 8 }} />;
+
+    // 5. Normal paragraphs
     return (
-      <p key={idx} style={{ margin: '2px 0', fontSize: 12, color: 'var(--txt-second)', lineHeight: 1.75 }}>
+      <p
+        key={idx}
+        style={{
+          margin: '0 0 10px',
+          fontSize: 12.2,
+          color: 'var(--txt-second)',
+          lineHeight: 1.8,
+          letterSpacing: '0.01em',
+        }}
+      >
         {parseInline(line)}
       </p>
     );
@@ -154,20 +201,87 @@ const renderContent = (content: string) => {
 
 /* ── Suggestion section parser ───────────────────────────── */
 const splitSuggestions = (content: string): { main: string; questions: string[] } => {
-  const marker   = "consider asking:";
-  const markerIdx = content.toLowerCase().indexOf(marker);
-  if (markerIdx === -1) return { main: content, questions: [] };
+  let main = content;
+  const questions: string[] = [];
 
-  const headerStart = content.slice(0, markerIdx).lastIndexOf("\nTo ");
-  const splitAt     = headerStart > 0 ? headerStart : markerIdx - 30;
-  if (splitAt <= 0) return { main: content, questions: [] };
+  // 1. Try to extract JSON-like structures that contain "question": "..."
+  const jsonRegex = /\{[\s\S]*?"question"\s*:\s*"((?:[^"\\]|\\.)*)"[\s\S]*?\}/g;
+  let match;
+  const matchesToStrip: string[] = [];
 
-  const main        = content.slice(0, splitAt).trim();
-  const followUp    = content.slice(splitAt);
-  const questions   = followUp
-    .split("\n")
-    .map(l => l.trim().match(/^\d+\.\s+(.+)$/)?.[1])
-    .filter(Boolean) as string[];
+  while ((match = jsonRegex.exec(content)) !== null) {
+    const fullMatch = match[0];
+    const qText = match[1]
+      .replace(/\\"/g, '"') // unescape double quotes
+      .replace(/\\n/g, ' ') // clean up newlines
+      .trim();
+    if (qText) {
+      questions.push(qText);
+      matchesToStrip.push(fullMatch);
+    }
+  }
+
+  if (questions.length > 0) {
+    let cleaned = content;
+    for (const block of matchesToStrip) {
+      cleaned = cleaned.replace(block, "");
+    }
+    cleaned = cleaned.replace(/[\s,\[\]\{\}]*$/, "").trim();
+    main = cleaned;
+  }
+
+  // 2. Fallback to standard "consider asking:" text matching
+  const marker = "consider asking:";
+  const markerIdx = main.toLowerCase().indexOf(marker);
+  if (markerIdx !== -1) {
+    const headerStart = main.slice(0, markerIdx).lastIndexOf("\nTo ");
+    const splitAt = headerStart > 0 ? headerStart : markerIdx - 30;
+    if (splitAt > 0) {
+      const textMain = main.slice(0, splitAt).trim();
+      const followUp = main.slice(splitAt);
+      const textQuestions = followUp
+        .split("\n")
+        .map(l => l.trim().match(/^\d+\.\s+(.+)$/)?.[1])
+        .filter(Boolean) as string[];
+      
+      if (textQuestions.length > 0) {
+        return { main: textMain, questions: [...questions, ...textQuestions] };
+      }
+    }
+  }
+
+  // 3. Fallback to parsing trailing numbered question blocks (e.g. "1. Why... \n 2. How...") at the end of the text
+  const lines = main.split("\n");
+  const parsedQuestions: string[] = [];
+  let startIndex = -1;
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim();
+    const match = l.match(/^\d+\.\s+(.+)$/);
+    if (match) {
+      if (startIndex === -1) {
+        if (l.startsWith("1.")) {
+          startIndex = i;
+          parsedQuestions.push(match[1].trim());
+        }
+      } else {
+        parsedQuestions.push(match[1].trim());
+      }
+    } else {
+      if (startIndex !== -1 && l !== "") {
+        startIndex = -1;
+        parsedQuestions.length = 0;
+      }
+    }
+  }
+
+  if (startIndex !== -1 && parsedQuestions.length > 0) {
+    return {
+      main: lines.slice(0, startIndex).join("\n").trim(),
+      questions: [...questions, ...parsedQuestions]
+    };
+  }
+
   return { main, questions };
 };
 
@@ -278,6 +392,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
 
           const isUser = msg.role === "user";
 
+          // Skip rendering if assistant message is empty to avoid rendering an empty bubble
+          if (!isUser && !main.trim()) return null;
+
           return (
             <div
               key={idx}
@@ -314,16 +431,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
               {/* Bubble */}
               <div
                 style={{
-                  borderRadius: isUser ? '18px 4px 18px 18px' : '4px 18px 18px 18px',
-                  padding: '12px 16px',
+                  borderRadius: isUser ? '16px 16px 4px 16px' : undefined,
+                  padding: isUser ? '12px 16px' : '4px 0',
                   background: isUser
                     ? 'rgba(77,124,115,0.11)'
-                    : 'var(--bg-card)',
+                    : 'transparent',
                   border: isUser
                     ? '1px solid rgba(77,124,115,0.22)'
-                    : '1px solid rgba(255,255,255,0.05)',
-                  boxShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                  backdropFilter: 'blur(6px)',
+                    : 'none',
+                  boxShadow: isUser ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                  backdropFilter: isUser ? 'blur(6px)' : 'none',
                   minWidth: 0,
                   flex: 1,
                 }}
@@ -332,37 +449,57 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
 
                 {/* Suggested questions */}
                 {questions.length > 0 && (
-                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div style={{ fontSize: 9, color: 'var(--txt-disabled)', fontFamily: 'JetBrains Mono, monospace', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-                      💡 Explore further
+                  <div
+                    style={{
+                      marginTop: 20,
+                      padding: 16,
+                      background: 'rgba(26, 33, 30, 0.45)',
+                      border: '1px solid rgba(255, 255, 255, 0.04)',
+                      borderRadius: 12,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 9,
+                        color: 'var(--sage)',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        marginBottom: 10,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 6,
+                      }}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                      Suggested follow-ups
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                       {questions.map((q, qi) => (
                         <button
                           key={qi}
                           onClick={() => handleSuggestionClick(q)}
+                          className="text-left font-sans leading-relaxed cursor-pointer"
                           style={{
-                            textAlign: 'left',
-                            fontSize: 11,
+                            fontSize: 11.5,
                             color: 'var(--txt-second)',
-                            background: 'var(--bg-panel)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 10,
-                            padding: '8px 12px',
-                            cursor: 'pointer',
-                            fontFamily: 'Inter, sans-serif',
-                            lineHeight: 1.5,
-                            transition: 'all 220ms ease',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.04)',
+                            borderRadius: 8,
+                            padding: '10px 14px',
+                            transition: 'all 200ms ease',
                           }}
                           onMouseEnter={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-focus)';
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(77, 124, 115, 0.35)';
                             (e.currentTarget as HTMLButtonElement).style.color = 'var(--txt-primary)';
-                            (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-hover)';
+                            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(77, 124, 115, 0.08)';
+                            (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(-1px)';
                           }}
                           onMouseLeave={(e) => {
-                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
+                            (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255, 255, 255, 0.04)';
                             (e.currentTarget as HTMLButtonElement).style.color = 'var(--txt-second)';
-                            (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-panel)';
+                            (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255, 255, 255, 0.02)';
+                            (e.currentTarget as HTMLButtonElement).style.transform = 'none';
                           }}
                         >
                           {q}
@@ -377,7 +514,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
         })}
 
         {/* Typing indicator */}
-        {isLoading && (
+        {isLoading && (messages.length === 0 || messages[messages.length - 1].role !== "assistant" || !messages[messages.length - 1].content) && (
           <div
             className="animate-fade-in"
             style={{ display: 'flex', alignItems: 'flex-start', gap: 12, maxWidth: '88%' }}

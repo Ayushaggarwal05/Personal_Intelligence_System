@@ -79,42 +79,108 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({ projectId }) => 
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full p-6 overflow-y-auto bg-black/10 animate-fade-in">
-      <div className="flex items-center gap-2 mb-6">
-        <Award size={24} className="text-accentPurple" />
+    <div
+      className="flex-1 flex flex-col h-full p-6 overflow-y-auto animate-fade-in"
+      style={{ background: 'transparent' }}
+    >
+      <div className="flex items-center gap-3 mb-6 select-none">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, var(--accent) 0%, var(--sage) 100%)',
+            boxShadow: '0 4px 12px rgba(77,124,115,.12)',
+          }}
+        >
+          <Award size={16} style={{ color: 'var(--bg-card)' }} />
+        </div>
         <div>
-          <h2 className="text-lg font-bold text-gray-100 font-outfit">Technical Mock Interview Coach</h2>
-          <p className="text-xs text-gray-400">Adaptive questions based on your codebase symbols</p>
+          <h2
+            className="font-heading font-bold tracking-tight text-txtPrimary"
+            style={{ fontSize: 14 }}
+          >
+            Technical Mock Interview Coach
+          </h2>
+          <p
+            className="font-mono text-txtMuted mt-0.5"
+            style={{ fontSize: 9, letterSpacing: '0.02em' }}
+          >
+            Adaptive questions based on your codebase symbols
+          </p>
         </div>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-950/20 border border-red-500/30 text-red-400 rounded-md text-xs mb-4">
+        <div
+          className="p-3 border text-xs mb-4 rounded-xl"
+          style={{
+            background: 'rgba(239, 68, 68, 0.06)',
+            borderColor: 'rgba(239, 68, 68, 0.15)',
+            color: '#ef4444',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}
+        >
           {error}
         </div>
       )}
 
       {!session ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-center py-20">
-          <Zap size={48} className="text-accentPurple/45 mb-4 animate-pulse" />
-          <h3 className="text-base font-semibold text-gray-200 mb-2 font-outfit">Start Mock Interview Session</h3>
-          <p className="text-xs text-gray-400 max-w-[400px] mb-6 leading-relaxed">
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-20 select-none">
+          <Zap size={44} style={{ color: 'var(--accent)', opacity: 0.6, marginBottom: 16 }} className="animate-pulse" />
+          <h3
+            className="font-heading font-bold text-txtPrimary mb-2"
+            style={{ fontSize: 15 }}
+          >
+            Start Mock Interview Session
+          </h3>
+          <p
+            className="text-txtMuted max-w-[400px] mb-6 leading-relaxed"
+            style={{ fontSize: 12 }}
+          >
             Answer system questions generated dynamically from your code class schemas, routes, and functional dependencies.
           </p>
-          <button onClick={handleStart} disabled={!projectId || isLoading} className="glow-btn">
+          <button
+            onClick={handleStart}
+            disabled={!projectId || isLoading}
+            className="asta-btn-premium font-heading font-semibold"
+            style={{
+              padding: '12px 24px',
+              borderRadius: 12,
+              background: (!projectId || isLoading) ? 'transparent' : 'var(--accent)',
+              color: (!projectId || isLoading) ? 'var(--txt-disabled)' : '#F4F6F5',
+              cursor: (!projectId || isLoading) ? 'not-allowed' : 'pointer',
+              border: 'none',
+              transition: 'all 200ms ease',
+            }}
+          >
             {isLoading ? 'Booting Coach...' : 'Launch Interview'}
           </button>
         </div>
       ) : (
         <div className="flex flex-col gap-5">
           {/* Question panel */}
-          <div className="p-4 border-l-4 border-accentPurple bg-bgCard backdrop-blur-md rounded-r-lg border border-white/5">
-            <span className="text-[10px] text-accentCyan font-bold block mb-1.5 font-mono uppercase">
-              FOCUS AREA: {session.focus_area}
+          <div
+            className="p-4 rounded-r-lg border border-white/5"
+            style={{
+              background: 'var(--bg-card)',
+              borderLeft: '4px solid var(--accent)',
+            }}
+          >
+            <span
+              className="text-[10px] font-bold block mb-1.5 font-mono uppercase"
+              style={{ color: 'var(--sage)' }}
+            >
+              Focus Area: {isLoading ? 'Evaluating & Generating...' : session.focus_area}
             </span>
-            <span className="text-sm font-medium text-white leading-relaxed">
-              {session.question}
-            </span>
+            {isLoading ? (
+              <div className="flex flex-col gap-2 mt-2">
+                <div className="h-4 bg-white/10 rounded w-11/12 animate-pulse" />
+                <div className="h-4 bg-white/10 rounded w-8/12 animate-pulse" />
+              </div>
+            ) : (
+              <span className="text-sm font-medium text-white leading-relaxed">
+                {session.question}
+              </span>
+            )}
           </div>
 
           {/* Submission form */}
@@ -124,17 +190,47 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({ projectId }) => 
               value={userAnswer}
               onChange={(e) => setUserAnswer(e.target.value)}
               disabled={isLoading}
-              className="w-full h-32 bg-black/20 border border-white/10 rounded-lg p-3 text-xs text-white outline-none resize-none box-border leading-relaxed focus:border-accentPurple/50 transition-all"
+              className="w-full h-32 rounded-lg p-3 text-xs text-white outline-none resize-none box-border leading-relaxed transition-all"
+              style={{
+                background: 'rgba(255, 255, 255, 0.02)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = 'rgba(77, 124, 115, 0.3)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.03)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                e.target.style.background = 'rgba(255, 255, 255, 0.02)';
+              }}
             />
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-3 select-none">
               <button
                 type="button"
                 onClick={() => setSession(null)}
-                className="px-4 py-2 text-xs rounded border border-white/10 bg-transparent text-gray-400 hover:text-white hover:bg-white/5 transition-all cursor-pointer"
+                className="px-4 py-2 text-xs rounded border bg-transparent text-txtMuted hover:text-white transition-all cursor-pointer"
+                style={{
+                  borderColor: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: 10,
+                }}
               >
                 Quit
               </button>
-              <button type="submit" disabled={isLoading || !userAnswer.trim()} className="glow-btn">
+              <button
+                type="submit"
+                disabled={isLoading || !userAnswer.trim()}
+                className="font-heading font-semibold"
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 10,
+                  fontSize: 12,
+                  background: (isLoading || !userAnswer.trim()) ? 'transparent' : 'var(--accent)',
+                  color: (isLoading || !userAnswer.trim()) ? 'var(--txt-disabled)' : '#F4F6F5',
+                  cursor: (isLoading || !userAnswer.trim()) ? 'not-allowed' : 'pointer',
+                  border: 'none',
+                  transition: 'all 200ms ease',
+                }}
+              >
                 {isLoading ? 'Grading Answer...' : 'Submit Answer'}
               </button>
             </div>
@@ -142,36 +238,54 @@ export const InterviewCoach: React.FC<InterviewCoachProps> = ({ projectId }) => 
 
           {/* Scorecard Results Overlay */}
           {scorecard && (
-            <div className="p-5 mt-4 border-l-4 border-accentCyan bg-bgCard backdrop-blur-md rounded-r-lg border border-white/5 animate-fade-in">
+            <div
+              className="p-5 mt-4 rounded-r-lg border border-white/5 animate-fade-in"
+              style={{
+                background: 'rgba(26, 33, 30, 0.45)',
+                borderLeft: '4px solid var(--sage)',
+              }}
+            >
               <div className="flex justify-between items-center mb-4">
-                <span className="flex items-center gap-1.5 font-bold text-sm text-gray-100 font-outfit">
-                  <CheckCircle size={18} className="text-accentCyan" />
+                <span className="flex items-center gap-1.5 font-bold text-sm text-gray-100 font-heading">
+                  <CheckCircle size={18} style={{ color: 'var(--sage)' }} />
                   Evaluation Scorecard
                 </span>
-                <span className="text-2xl font-extrabold text-accentCyan font-outfit">
+                <span
+                  className="text-2xl font-extrabold font-heading"
+                  style={{ color: 'var(--sage)' }}
+                >
                   {scorecard.score}/100
                 </span>
               </div>
 
               <div className="flex flex-col gap-3 text-xs">
                 <div>
-                  <span className="text-gray-400 font-semibold block mb-1 text-[11px] font-outfit">Suggestions:</span>
+                  <span className="text-gray-400 font-semibold block mb-1 text-[11px] font-heading">Suggestions:</span>
                   <p className="text-gray-200 m-0 leading-relaxed">{scorecard.suggestions}</p>
                 </div>
 
                 {scorecard.model_answer && (
                   <div>
-                    <span className="text-gray-400 font-semibold block mb-1 text-[11px] font-outfit">Model Answer Key:</span>
+                    <span className="text-gray-400 font-semibold block mb-1 text-[11px] font-heading">Model Answer Key:</span>
                     <p className="text-gray-400 m-0 italic leading-relaxed">{scorecard.model_answer}</p>
                   </div>
                 )}
 
-                <div className="border-t border-white/10 pt-3 mt-2 flex justify-between items-center">
+                <div className="border-t border-white/10 pt-3 mt-2 flex justify-between items-center select-none">
                   <span className="text-gray-500 text-[10px] font-mono">Next question loaded in panel</span>
                   <button
                     type="button"
                     onClick={() => setScorecard(null)}
-                    className="glow-btn py-1.5 px-3 text-[11px] flex items-center gap-1 cursor-pointer"
+                    className="font-heading font-semibold flex items-center gap-1 cursor-pointer"
+                    style={{
+                      padding: '6px 12px',
+                      borderRadius: 8,
+                      fontSize: 11.5,
+                      background: 'var(--accent)',
+                      color: '#F4F6F5',
+                      border: 'none',
+                      transition: 'all 200ms ease',
+                    }}
                   >
                     Continue <ChevronRight size={14} />
                   </button>

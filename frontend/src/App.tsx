@@ -5,13 +5,19 @@ import { ChatWindow } from "./components/ChatWindow";
 import { DiagramViewer } from "./components/DiagramViewer";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { WorkspaceStats } from "./components/WorkspaceStats";
-import { Layers, Settings, MessageSquare } from "lucide-react";
+import { InterviewCoach } from "./components/InterviewCoach";
+import { Layers, Settings, MessageSquare, Award } from "lucide-react";
 
 const TABS = [
   {
     id: "explain",
     label: "Interview Mentor",
     icon: <MessageSquare size={14} />,
+  },
+  {
+    id: "interview",
+    label: "Mock Interview",
+    icon: <Award size={14} />,
   },
   { id: "diagrams", label: "Diagram Canvas", icon: <Layers size={14} /> },
   { id: "settings", label: "Settings", icon: <Settings size={14} /> },
@@ -59,7 +65,7 @@ export default function App() {
                 color: "var(--bg-card)",
               }}
             >
-              &gt;_
+              &gt;_&lt;
             </span>
           </div>
 
@@ -250,6 +256,7 @@ export default function App() {
         {/* Active Content */}
         <section className="flex-1 overflow-hidden">
           {activeTab === "explain" && <ChatWindow projectId={projectId} />}
+          {activeTab === "interview" && <InterviewCoach projectId={projectId} />}
           {activeTab === "diagrams" && <DiagramViewer projectId={projectId} />}
           {activeTab === "settings" && <SettingsDrawer projectId={projectId} />}
         </section>

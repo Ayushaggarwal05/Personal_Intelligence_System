@@ -14,7 +14,7 @@ Your task is to output a single JSON object with the following schema:
 {{
   "score": 0-100 integer representing the completeness and accuracy of the answer,
   "missing_keywords": ["keyword1", "keyword2", ...], list of essential technical terms or concepts relevant to this question that the user failed to mention,
-  "model_answer": "A concise, professional model response showing how a senior developer would confidently answer this question based on the actual codebase structure.",
+  "model_answer": "A concise, professional model response showing how a senior developer would confidently answer this question. Make this extremely readable and easy to scan using numbered steps, tree lists, flow arrows, bold highlights, and clean separators (══════════).",
   "suggestions": "Brief constructive feedback points for how the user can improve their explanation next time."
 }}
 

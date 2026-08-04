@@ -5,6 +5,18 @@ from logging.handlers import RotatingFileHandler
 from app.core.settings import settings
 
 def setup_logging():
+    # Force stdout/stderr to use UTF-8 on Windows to prevent charmap UnicodeEncodeErrors
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+    if hasattr(sys.stderr, "reconfigure"):
+        try:
+            sys.stderr.reconfigure(encoding="utf-8")
+        except Exception:
+            pass
+
     log_level = getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
     
     logger = logging.getLogger("peis")
