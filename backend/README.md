@@ -132,10 +132,14 @@ DATABASE_URL=sqlite:///./peis.db
 
 ## 🧪 Running Automated Tests
 
-Run the full system E2E integration test suite to verify database connections, agent pipelines, and API routes:
+Run the automated test suites using the following commands:
 
 ```bash
-python backend/tests/test_integration.py
+# Run all backend unit and integration tests
+python -m pytest tests/
+
+# Run the specialized AI Layer workflows test suite
+python tests/test_ai_layer.py
 ```
 
 ---

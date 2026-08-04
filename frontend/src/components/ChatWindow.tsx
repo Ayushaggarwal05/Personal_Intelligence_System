@@ -201,7 +201,7 @@ const renderContent = (content: string) => {
 
 /* ── Suggestion section parser ───────────────────────────── */
 const splitSuggestions = (content: string): { main: string; questions: string[] } => {
-  let main = content;
+  let main = content.replace("[EXPLAIN_DONE]", "");
   const questions: string[] = [];
 
   // 1. Try to extract JSON-like structures that contain "question": "..."
@@ -395,6 +395,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
           // Skip rendering if assistant message is empty to avoid rendering an empty bubble
           if (!isUser && !main.trim()) return null;
 
+          const isLast = idx === messages.length - 1;
+          const hasFinishedExplanation = msg.content.includes("[EXPLAIN_DONE]");
+          const isStreamingThis = !isUser && isLast && isLoading && hasFinishedExplanation;
+
           return (
             <div
               key={idx}
@@ -446,6 +450,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
                 }}
               >
                 {renderContent(main)}
+
+                {/* Streaming suggested questions indicator */}
+                {isStreamingThis && (
+                  <div
+                    style={{
+                      marginTop: 20,
+                      padding: 16,
+                      background: 'rgba(26, 33, 30, 0.45)',
+                      border: '1px solid rgba(255, 255, 255, 0.04)',
+                      borderRadius: 12,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        color: 'var(--txt-second)',
+                        fontFamily: 'Inter, sans-serif',
+                      }}
+                    >
+                      Formulating suggested follow-ups...
+                    </span>
+                  </div>
+                )}
 
                 {/* Suggested questions */}
                 {questions.length > 0 && (

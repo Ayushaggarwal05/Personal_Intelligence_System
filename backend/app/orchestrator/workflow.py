@@ -271,6 +271,7 @@ class WorkflowEngine:
 
         # 4. Generate codebase-specific follow-up learning path questions (All technical modes)
         if not is_casual:
+            yield "[EXPLAIN_DONE]"
             context_data = {
                 "project_name": project.name,
                 "framework": fw_str,

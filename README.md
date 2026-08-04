@@ -119,9 +119,10 @@ MyProjectPro/
 │   │   └── services/             # API client calls
 │   └── package.json
 │
-├── architecture.md               # Visual guides, schemas and sequence charts
-├── prd.readme                    # Core requirements, capabilities and goals
-└── RULES.md                      # Development and design constraints
+├── ARCHITECTURE.md               # Visual guides, database schemas and workflows
+├── PRD.md                        # Core product requirements and visions
+├── RULES.md                      # Development rules and architectural rules
+└── memory.md                     # Completed features, RAM optimizations & log
 ```
 
 ---
@@ -191,6 +192,20 @@ npm install
 
 # Run Vite Local Development Server
 npm run dev
+```
+
+---
+
+## Running Integration Tests
+
+To run the full E2E system and agent integration test suite:
+
+```bash
+# Run all tests
+python -m pytest backend/tests/
+
+# Run the specialized AI Layer workflows test suite
+python backend/tests/test_ai_layer.py
 ```
 
 ---
