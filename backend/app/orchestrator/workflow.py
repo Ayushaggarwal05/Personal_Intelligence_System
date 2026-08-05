@@ -98,47 +98,49 @@ class WorkflowEngine:
 
         # Generate a clean, visual directory tree of the workspace
         def build_visual_tree(files) -> str:
-            structure = {}
+            tree = {}
             for path in files:
                 parts = path.replace("\\", "/").split("/")
-                if len(parts) == 1:
-                    structure[parts[0]] = None
-                else:
-                    top_dir = parts[0]
-                    if top_dir not in structure or not isinstance(structure[top_dir], dict):
-                        structure[top_dir] = {}
-                    if len(parts) == 2:
-                        structure[top_dir][parts[1]] = None
+                current = tree
+                for part in parts:
+                    if part not in current:
+                        current[part] = {}
+                    current = current[part]
+
+            def render_node(node, prefix="") -> List[str]:
+                output_lines = []
+                dirs = []
+                files = []
+                for name, child in sorted(node.items()):
+                    if not child:
+                        files.append(name)
                     else:
-                        sub_dir = parts[1]
-                        if sub_dir not in structure[top_dir]:
-                            structure[top_dir][sub_dir] = []
-                        if isinstance(structure[top_dir][sub_dir], list):
-                            structure[top_dir][sub_dir].append(parts[-1])
-            
-            lines = []
-            for top_dir, contents in sorted(structure.items()):
-                if contents is None:
-                    lines.append(f"├── {top_dir}")
-                else:
-                    lines.append(f"├── {top_dir}/")
-                    sub_keys = sorted(contents.keys())
-                    for i, sub in enumerate(sub_keys):
-                        is_last_sub = (i == len(sub_keys) - 1)
-                        sub_char = "└── " if is_last_sub else "├── "
-                        sub_prefix = "    " if is_last_sub else "│   "
-                        val = contents[sub]
-                        if val is None:
-                            lines.append(f"│   {sub_char}{sub}")
-                        elif isinstance(val, list):
-                            lines.append(f"│   {sub_char}{sub}/")
-                            for j, file in enumerate(val[:3]):
-                                is_last_file = (j == len(val[:3]) - 1 and len(val) <= 3)
-                                file_char = "└── " if is_last_file else "├── "
-                                lines.append(f"│   {sub_prefix}{file_char}{file}")
-                            if len(val) > 3:
-                                lines.append(f"│   {sub_prefix}└── ... (and {len(val) - 3} more files)")
-            return "\n".join(lines)
+                        dirs.append((name, child))
+                
+                # Always render directories first to show folders clearly
+                for idx, (d_name, d_child) in enumerate(dirs):
+                    is_last_dir = (idx == len(dirs) - 1 and len(files) == 0)
+                    connector = "└── " if is_last_dir else "├── "
+                    child_prefix = "    " if is_last_dir else "│   "
+                    output_lines.append(f"{prefix}{connector}{d_name}/")
+                    output_lines.extend(render_node(d_child, prefix + child_prefix))
+
+                # Render files up to a limit (max 4 files) to prevent long trees
+                file_limit = 4
+                visible_files = files[:file_limit]
+                remaining_files = len(files) - file_limit
+
+                for idx, f_name in enumerate(visible_files):
+                    is_last_file = (idx == len(visible_files) - 1 and remaining_files <= 0)
+                    connector = "└── " if is_last_file else "├── "
+                    output_lines.append(f"{prefix}{connector}{f_name}")
+
+                if remaining_files > 0:
+                    output_lines.append(f"{prefix}└── ... (and {remaining_files} more files)")
+
+                return output_lines
+
+            return "\n".join(render_node(tree))
 
         project_files_paths = [f.relative_path for f in all_project_files]
         files_tree_str = build_visual_tree(project_files_paths)
