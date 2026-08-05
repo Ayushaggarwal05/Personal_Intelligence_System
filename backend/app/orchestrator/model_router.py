@@ -10,7 +10,7 @@ def make_post_request(url: str, headers: Dict[str, str], payload: Dict[str, Any]
     
     try:
         import httpx
-        with httpx.Client(timeout=180.0) as client:
+        with httpx.Client(timeout=300.0) as client:
             response = client.post(url, headers=headers, content=data)
             if response.status_code != 200:
                 raise LLMProviderException("HTTP Error", f"Status code {response.status_code}: {response.text}")
@@ -20,7 +20,7 @@ def make_post_request(url: str, headers: Dict[str, str], payload: Dict[str, Any]
         import urllib.error
         req = urllib.request.Request(url, data=data, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(req, timeout=180) as response:
+            with urllib.request.urlopen(req, timeout=300) as response:
                 return response.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8") if e else ""
@@ -75,7 +75,10 @@ class ModelRouter:
                 "model": settings.OLLAMA_MODEL,
                 "prompt": prompt,
                 "stream": False,
-                "keep_alive": "10m"
+                "keep_alive": "10m",
+                "options": {
+                    "num_ctx": 8192
+                }
             }
             if system_prompt:
                 payload["system"] = system_prompt
@@ -156,14 +159,17 @@ class ModelRouter:
                 "model": settings.OLLAMA_MODEL,
                 "prompt": prompt,
                 "stream": True,
-                "keep_alive": "10m"
+                "keep_alive": "10m",
+                "options": {
+                    "num_ctx": 8192
+                }
             }
             if system_prompt:
                 payload["system"] = system_prompt
 
             try:
                 import httpx
-                with httpx.Client(timeout=180.0) as client:
+                with httpx.Client(timeout=300.0) as client:
                     with client.stream("POST", url, headers=headers, json=payload) as response:
                         for line in response.iter_lines():
                             if line:

@@ -96,11 +96,52 @@ class WorkflowEngine:
         frontend_deps_str = ", ".join(frontend_deps) if frontend_deps else "None detected."
         backend_deps_str = ", ".join(backend_deps) if backend_deps else "None detected."
 
-        # Add list of filenames (paths only, no contents) to ground ASTA on what files exist
-        project_files_list = [f.relative_path for f in all_project_files]
-        files_tree_str = "\n".join([f"- {path}" for path in project_files_list[:40]])
-        if len(project_files_list) > 40:
-            files_tree_str += f"\n- ... and {len(project_files_list) - 40} more files."
+        # Generate a clean, visual directory tree of the workspace
+        def build_visual_tree(files) -> str:
+            structure = {}
+            for path in files:
+                parts = path.replace("\\", "/").split("/")
+                if len(parts) == 1:
+                    structure[parts[0]] = None
+                else:
+                    top_dir = parts[0]
+                    if top_dir not in structure or not isinstance(structure[top_dir], dict):
+                        structure[top_dir] = {}
+                    if len(parts) == 2:
+                        structure[top_dir][parts[1]] = None
+                    else:
+                        sub_dir = parts[1]
+                        if sub_dir not in structure[top_dir]:
+                            structure[top_dir][sub_dir] = []
+                        if isinstance(structure[top_dir][sub_dir], list):
+                            structure[top_dir][sub_dir].append(parts[-1])
+            
+            lines = []
+            for top_dir, contents in sorted(structure.items()):
+                if contents is None:
+                    lines.append(f"├── {top_dir}")
+                else:
+                    lines.append(f"├── {top_dir}/")
+                    sub_keys = sorted(contents.keys())
+                    for i, sub in enumerate(sub_keys):
+                        is_last_sub = (i == len(sub_keys) - 1)
+                        sub_char = "└── " if is_last_sub else "├── "
+                        sub_prefix = "    " if is_last_sub else "│   "
+                        val = contents[sub]
+                        if val is None:
+                            lines.append(f"│   {sub_char}{sub}")
+                        elif isinstance(val, list):
+                            lines.append(f"│   {sub_char}{sub}/")
+                            for j, file in enumerate(val[:3]):
+                                is_last_file = (j == len(val[:3]) - 1 and len(val) <= 3)
+                                file_char = "└── " if is_last_file else "├── "
+                                lines.append(f"│   {sub_prefix}{file_char}{file}")
+                            if len(val) > 3:
+                                lines.append(f"│   {sub_prefix}└── ... (and {len(val) - 3} more files)")
+            return "\n".join(lines)
+
+        project_files_paths = [f.relative_path for f in all_project_files]
+        files_tree_str = build_visual_tree(project_files_paths)
         
         # Search for a single README/overview file to read its contents
         overview_content = ""
@@ -172,8 +213,17 @@ class WorkflowEngine:
         else:
             history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
 
+        # Extract top-level folder names dynamically from SQLite project files
+        all_project_files = self.file_repo.list_by_project(project_id)
+        project_folders = []
+        for f in all_project_files:
+            parts = f.relative_path.replace("\\", "/").split("/")
+            if len(parts) > 1:
+                project_folders.append(parts[0])
+        project_folders = list(set(project_folders))
+
         # 1. Check query intent mode and learning objective
-        intent_data = self.planner.classify_intent(query)
+        intent_data = self.planner.classify_intent(query, project_folders=project_folders)
         mode = intent_data["mode"]
         objective = intent_data["objective"]
         is_casual = (mode == "casual")

@@ -45,6 +45,28 @@ class ProjectAgent(BaseAgent):
                 f"- Keep the response professional, friendly, calm, and natural.\n"
                 f"- Tone example: A warm, inviting, custom welcome showing ASTA's persona without copy-pasting standard canned scripts."
             )
+        elif mode == "codebase_explore":
+            variables = {
+                "project_context": (
+                    f"Project Name: {project_name}\n"
+                    f"Frameworks/Languages: {framework}\n"
+                    f"Databases: {database_type}\n\n"
+                    f"## Indexed Codebase Symbols:\n{symbols_context}\n\n"
+                    f"## Recent Chat History:\n{chat_history or 'No previous messages.'}\n"
+                )
+            }
+            prompt = (
+                f"# CURRENT USER QUERY: '{user_query}'\n\n"
+                f"# INSTRUCTIONS FOR CODEBASE EXPLORATION:\n"
+                f"- You are ASTA, a friendly, calm, and natural Senior Staff Software Engineer mentoring a junior developer.\n"
+                f"- Grounding: Look at the files list and dependencies provided in the project context. You must ground your response 100% on the actual files and directories present.\n"
+                f"- Visual Tree Layout: Generate a clean visual directory tree (`├──`, `└──`, `│`) showing ALL top-level folders that exist in the files context (e.g., if there are files under both `backend` and `frontend` in the files list, draw both in the tree, like:\n"
+                f"  ├── backend\n"
+                f"  └── frontend\n"
+                f"  ).\n"
+                f"- Dynamically Profile Folders: Outline each top-level directory shown in the tree. Explain what each folder is for based on the files inside it. Do NOT make static/default assumptions or guess frameworks/databases that are not in the files list. If a folder contains only notes, text, or markdown, describe it as a documentation/notes folder.\n"
+                f"- Keep your response direct, concise, and structured. Explain it as if you are teaching the user how they should understand the workspace."
+            )
         else:
             # Setup prompt instructions tailored by specific mode and objective
             variables = {
@@ -61,7 +83,7 @@ class ProjectAgent(BaseAgent):
                 f"# CURRENT USER QUERY: '{user_query}'\n\n"
                 f"# INSTRUCTIONS:\n"
                 f"- You are ASTA, a friendly, calm, and natural Senior Staff Software Engineer mentoring a junior developer.\n"
-                f"- Grounding: Only reference existing files, directories, notes, and modules present in the codebase context (e.g., from the Project Directory Structure or README). Do NOT invent database schemas, frameworks (like Django, FastAPI, React), code views, or architectures that are not explicitly present. If the project contains only text, markdown, or documentation files (like PR notes, combined data), explain those specific documents and their contents dynamically, explicitly stating that this is a notes/documentation folder rather than a running application codebase. If the context is insufficient, explicitly say so.\n"
+                f"- Grounding & Dynamic Exploration: Only reference existing files, directories, notes, and modules present in the codebase context (e.g., from the Project Directory Structure or README). If the query is specifically about a single folder (like 'backend' or 'frontend'), do NOT draw the visual directory tree; focus purely on explaining the internal folders and components of that directory. Do NOT invent database schemas, frameworks, folder names, or architectures that are not explicitly present in the files list. If a folder contains only notes, text, or markdown, explicitly state that it is a documentation/notes folder.\n"
                 f"- Concise & To-The-Point: Keep your response precise, focused, and direct. Avoid excessively long-winded textbook explanations or general fillers. Summarize key aspects cleanly.\n"
                 f"- No Script Dialogues: Do NOT format your explanation as a dialogue transcript (e.g., do NOT generate 'Interviewer:' and 'You:' script lines). Instead, explain the concepts and architecture directly to the user.\n"
                 f"- Explain it as if you are teaching the user how THEY should explain it or understand it. Start your explanation naturally (e.g., 'In this workspace...' or 'If I were asked about this...').\n"
@@ -116,6 +138,28 @@ class ProjectAgent(BaseAgent):
                 f"- Keep the response professional, friendly, calm, and natural.\n"
                 f"- Tone example: A warm, inviting, custom welcome showing ASTA's persona without copy-pasting standard canned scripts."
             )
+        elif mode == "codebase_explore":
+            variables = {
+                "project_context": (
+                    f"Project Name: {project_name}\n"
+                    f"Frameworks/Languages: {framework}\n"
+                    f"Databases: {database_type}\n\n"
+                    f"## Indexed Codebase Symbols:\n{symbols_context}\n\n"
+                    f"## Recent Chat History:\n{chat_history or 'No previous messages.'}\n"
+                )
+            }
+            prompt = (
+                f"# CURRENT USER QUERY: '{user_query}'\n\n"
+                f"# INSTRUCTIONS FOR CODEBASE EXPLORATION:\n"
+                f"- You are ASTA, a friendly, calm, and natural Senior Staff Software Engineer mentoring a junior developer.\n"
+                f"- Grounding: Look at the files list and dependencies provided in the project context. You must ground your response 100% on the actual files and directories present.\n"
+                f"- Visual Tree Layout: Generate a clean visual directory tree (`├──`, `└──`, `│`) showing ALL top-level folders that exist in the files context (e.g., if there are files under both `backend` and `frontend` in the files list, draw both in the tree, like:\n"
+                f"  ├── backend\n"
+                f"  └── frontend\n"
+                f"  ).\n"
+                f"- Dynamically Profile Folders: Outline each top-level directory shown in the tree. Explain what each folder is for based on the files inside it. Do NOT make static/default assumptions or guess frameworks/databases that are not in the files list. If a folder contains only notes, text, or markdown, describe it as a documentation/notes folder.\n"
+                f"- Keep your response direct, concise, and structured. Explain it as if you are teaching the user how they should understand the workspace."
+            )
         else:
             # Setup prompt instructions tailored by specific mode and objective
             variables = {
@@ -132,7 +176,7 @@ class ProjectAgent(BaseAgent):
                 f"# CURRENT USER QUERY: '{user_query}'\n\n"
                 f"# INSTRUCTIONS:\n"
                 f"- You are ASTA, a friendly, calm, and natural Senior Staff Software Engineer mentoring a junior developer.\n"
-                f"- Grounding: Only reference existing files, directories, notes, and modules present in the codebase context (e.g., from the Project Directory Structure or README). Do NOT invent database schemas, frameworks (like Django, FastAPI, React), code views, or architectures that are not explicitly present. If the project contains only text, markdown, or documentation files (like PR notes, combined data), explain those specific documents and their contents dynamically, explicitly stating that this is a notes/documentation folder rather than a running application codebase. If the context is insufficient, explicitly say so.\n"
+                f"- Grounding & Dynamic Exploration: Only reference existing files, directories, notes, and modules present in the codebase context (e.g., from the Project Directory Structure or README). If the query is specifically about a single folder (like 'backend' or 'frontend'), do NOT draw the visual directory tree; focus purely on explaining the internal folders and components of that directory. Do NOT invent database schemas, frameworks, folder names, or architectures that are not explicitly present in the files list. If a folder contains only notes, text, or markdown, explicitly state that it is a documentation/notes folder.\n"
                 f"- Concise & To-The-Point: Keep your response precise, focused, and direct. Avoid excessively long-winded textbook explanations or general fillers. Summarize key aspects cleanly.\n"
                 f"- No Script Dialogues: Do NOT format your explanation as a dialogue transcript (e.g., do NOT generate 'Interviewer:' and 'You:' script lines). Instead, explain the concepts and architecture directly to the user.\n"
                 f"- Explain it as if you are teaching the user how THEY should explain it or understand it. Start your explanation naturally (e.g., 'In this workspace...' or 'If I were asked about this...').\n"

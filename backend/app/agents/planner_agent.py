@@ -1,5 +1,5 @@
 from app.agents.base_agent import BaseAgent
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 
 class PlannerAgent(BaseAgent):
     """Planner Agent orchestrating multi-agent tool execution steps based on user query intent."""
@@ -73,7 +73,7 @@ class PlannerAgent(BaseAgent):
                 ]
             }
 
-    def classify_intent(self, query: str) -> Dict[str, str]:
+    def classify_intent(self, query: str, project_folders: Optional[List[str]] = None) -> Dict[str, str]:
         """Classifies the user query intent (mode) and the learning objective in a single call."""
         query_lower = query.lower().strip("?.,!\"' ")
         
@@ -85,7 +85,14 @@ class PlannerAgent(BaseAgent):
         # 1b. High-performance deterministic keyword pass (Approach 1: Heuristics-First)
         # Check codebase exploration queries
         explore_kws = {"folder", "directory", "directories", "files in", "structure of", "whats in", "what's in", "show me files", "where is", "how to find", "find file", "find class", "find route", "locate"}
+        specific_dirs = {"backend", "frontend", "app", "src", "docs", "prompts", "tests", "components", "pages", "services"}
+        if project_folders:
+            specific_dirs = specific_dirs | {f.lower() for f in project_folders}
+            
         if any(kw in query_lower for kw in explore_kws):
+            # If they ask about a specific directory specifically, treat it as project explanation
+            if any(d in query_lower for d in specific_dirs) and "structure" not in query_lower and "tree" not in query_lower:
+                return {"mode": "project_explain", "objective": "project_pitch"}
             return {"mode": "codebase_explore", "objective": "project_pitch"}
 
         # Check architecture discussion queries
