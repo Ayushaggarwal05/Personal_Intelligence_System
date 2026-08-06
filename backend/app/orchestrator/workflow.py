@@ -36,7 +36,53 @@ class WorkflowEngine:
         self.reflection_agent = ReflectionAgent()
         self.memory_agent = MemoryAgent(db)
 
-    def _retrieve_relevant_code_context(self, project_id: str, project_path: str, query: str) -> str:
+    def _build_visual_tree(self, files: List[str]) -> str:
+        """Generates a clean, recursive visual directory tree of the workspace."""
+        tree = {}
+        for path in files:
+            parts = path.replace("\\", "/").split("/")
+            current = tree
+            for part in parts:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+
+        def render_node(node, prefix="") -> List[str]:
+            output_lines = []
+            dirs = []
+            files_list = []
+            for name, child in sorted(node.items()):
+                if not child:
+                    files_list.append(name)
+                else:
+                    dirs.append((name, child))
+            
+            # Always render directories first to show folders clearly
+            for idx, (d_name, d_child) in enumerate(dirs):
+                is_last_dir = (idx == len(dirs) - 1 and len(files_list) == 0)
+                connector = "└── " if is_last_dir else "├── "
+                child_prefix = "    " if is_last_dir else "│   "
+                output_lines.append(f"{prefix}{connector}{d_name}/")
+                output_lines.extend(render_node(d_child, prefix + child_prefix))
+
+            # Render files up to a limit (max 4 files) to prevent long trees
+            file_limit = 4
+            visible_files = files_list[:file_limit]
+            remaining_files = len(files_list) - file_limit
+
+            for idx, f_name in enumerate(visible_files):
+                is_last_file = (idx == len(visible_files) - 1 and remaining_files <= 0)
+                connector = "└── " if is_last_file else "├── "
+                output_lines.append(f"{prefix}{connector}{f_name}")
+
+            if remaining_files > 0:
+                output_lines.append(f"{prefix}└── ... (and {remaining_files} more files)")
+
+            return output_lines
+
+        return "\n".join(render_node(tree))
+
+    def _retrieve_relevant_code_context(self, project_id: str, project_path: str, query: str, mode: str) -> str:
         """Dynamically retrieves relevant symbols and file contents based on user query keywords."""
         stop_words = {"how", "is", "the", "file", "working", "does", "what", "can", "you", "tell", "me", "in", "my", "project", "code", "explain", "where", "show"}
         words = [w.strip("?.,!\"'()[]{}").lower() for w in query.split() if len(w.strip("?.,!\"'()[]{}")) > 2]
@@ -96,54 +142,53 @@ class WorkflowEngine:
         frontend_deps_str = ", ".join(frontend_deps) if frontend_deps else "None detected."
         backend_deps_str = ", ".join(backend_deps) if backend_deps else "None detected."
 
-        # Generate a clean, visual directory tree of the workspace
-        def build_visual_tree(files) -> str:
-            tree = {}
-            for path in files:
-                parts = path.replace("\\", "/").split("/")
-                current = tree
-                for part in parts:
-                    if part not in current:
-                        current[part] = {}
-                    current = current[part]
+        files_tree_str = ""
+        if mode == "codebase_explore":
+            project_files_paths = [f.relative_path for f in all_project_files]
+            files_tree_str = self._build_visual_tree(project_files_paths)
 
-            def render_node(node, prefix="") -> List[str]:
-                output_lines = []
-                dirs = []
-                files = []
-                for name, child in sorted(node.items()):
-                    if not child:
-                        files.append(name)
-                    else:
-                        dirs.append((name, child))
-                
-                # Always render directories first to show folders clearly
-                for idx, (d_name, d_child) in enumerate(dirs):
-                    is_last_dir = (idx == len(dirs) - 1 and len(files) == 0)
-                    connector = "└── " if is_last_dir else "├── "
-                    child_prefix = "    " if is_last_dir else "│   "
-                    output_lines.append(f"{prefix}{connector}{d_name}/")
-                    output_lines.extend(render_node(d_child, prefix + child_prefix))
+        # Build index mapping base filenames to their relative path for targeted RAG-on-Demand
+        existing_filenames = {}
+        for f in all_project_files:
+            base = f.relative_path.replace("\\", "/").split("/")[-1]
+            existing_filenames[base.lower()] = f.relative_path
+            # Also map base name without extension
+            if "." in base:
+                existing_filenames[base.split(".")[0].lower()] = f.relative_path
 
-                # Render files up to a limit (max 4 files) to prevent long trees
-                file_limit = 4
-                visible_files = files[:file_limit]
-                remaining_files = len(files) - file_limit
+        # Find target files in user query words
+        words_clean = [w.strip("?.,!\"'()[]{}").lower() for w in query.split()]
+        
+        # Build set of all folder paths in the project workspace to detect queries matching subdirectories
+        all_folders = set()
+        for f in all_project_files:
+            parts = f.relative_path.replace("\\", "/").split("/")
+            for i in range(1, len(parts)):
+                all_folders.add("/".join(parts[:i]).lower())
 
-                for idx, f_name in enumerate(visible_files):
-                    is_last_file = (idx == len(visible_files) - 1 and remaining_files <= 0)
-                    connector = "└── " if is_last_file else "├── "
-                    output_lines.append(f"{prefix}{connector}{f_name}")
-
-                if remaining_files > 0:
-                    output_lines.append(f"{prefix}└── ... (and {remaining_files} more files)")
-
-                return output_lines
-
-            return "\n".join(render_node(tree))
-
-        project_files_paths = [f.relative_path for f in all_project_files]
-        files_tree_str = build_visual_tree(project_files_paths)
+        # Check if query keywords match any of these folder names
+        queried_folders_files = {}
+        for folder in all_folders:
+            folder_name = folder.split("/")[-1]
+            if folder_name in words_clean:
+                # Find all files belonging to this folder
+                folder_prefix = folder + "/"
+                files_in_folder = [
+                    f.relative_path for f in all_project_files
+                    if f.relative_path.replace("\\", "/").lower().startswith(folder_prefix)
+                ]
+                queried_folders_files[folder] = files_in_folder
+        target_file_contents = []
+        for w in words_clean:
+            if w in existing_filenames:
+                rel_path = existing_filenames[w]
+                try:
+                    content = read_workspace_file_content(project_path, rel_path)
+                    limit_char = 4000
+                    snippet = content[:limit_char] + ("\n... [truncated]" if len(content) > limit_char else "")
+                    target_file_contents.append(f"--- File Code Content: {rel_path} ---\n{snippet}")
+                except Exception as e:
+                    logger.warning(f"Failed to read target file {rel_path}: {e}")
         
         # Search for a single README/overview file to read its contents
         overview_content = ""
@@ -160,10 +205,21 @@ class WorkflowEngine:
         context_parts = []
         if overview_content:
             context_parts.append(overview_content)
+
+        if queried_folders_files:
+            folder_info_parts = []
+            for folder_path, files in queried_folders_files.items():
+                files_list_str = "\n".join([f"- {f}" for f in files])
+                folder_info_parts.append(
+                    f"### All Files inside the queried folder '{folder_path}':\n"
+                    f"{files_list_str}"
+                )
+            context_parts.append("\n\n".join(folder_info_parts))
             
-        context_parts.append(
-            f"### Project Directory Structure (Indexed Files):\n{files_tree_str}"
-        )
+        if mode == "codebase_explore":
+            context_parts.append(
+                f"### Project Directory Structure (Indexed Files):\n{files_tree_str}"
+            )
 
         context_parts.append(
             f"### Codebase Tech Stack & Library Segregation:\n"
@@ -179,6 +235,9 @@ class WorkflowEngine:
             context_parts.append("### Relevant File Code Snippets:\n" + "\n\n".join(matched_file_snippets))
             
         context_parts.append(f"### Relevant AST Symbols:\n{symbols_str}")
+            
+        if target_file_contents:
+            context_parts.append("### Targeted File Contents (High Priority for explanation):\n" + "\n\n".join(target_file_contents))
 
         return "\n\n".join(context_parts)
 
@@ -215,13 +274,13 @@ class WorkflowEngine:
         else:
             history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
 
-        # Extract top-level folder names dynamically from SQLite project files
+        # Extract all folder and subfolder names dynamically from SQLite project files
         all_project_files = self.file_repo.list_by_project(project_id)
         project_folders = []
         for f in all_project_files:
             parts = f.relative_path.replace("\\", "/").split("/")
-            if len(parts) > 1:
-                project_folders.append(parts[0])
+            for p in parts[:-1]:
+                project_folders.append(p)
         project_folders = list(set(project_folders))
 
         # 1. Check query intent mode and learning objective
@@ -234,7 +293,7 @@ class WorkflowEngine:
         if is_casual:
             symbols_context = ""
         else:
-            symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
+            symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query, mode)
 
         # Determine framework and database strings, filtering out "Unknown" and "None" strings
         fw_str = project.framework if (project.framework and project.framework not in {"Unknown", "None"}) else "General Workspace (No specific framework detected)"
@@ -252,6 +311,17 @@ class WorkflowEngine:
             mode=mode,
             objective=objective
         )
+
+        if mode == "codebase_explore":
+            files_tree_str = self._build_visual_tree([f.relative_path for f in all_project_files])
+            tree_prefix = (
+                f"### 📂 Project Directory Structure:\n"
+                f"```plaintext\n"
+                f"{files_tree_str}\n"
+                f"```\n\n"
+                f"──────────══════════──────────\n\n"
+            )
+            response = tree_prefix + response
 
         # 4. Generate codebase-specific follow-up learning path questions (All technical modes)
         if not is_casual:
@@ -287,8 +357,17 @@ class WorkflowEngine:
         else:
             history_context = self.memory_agent.get_conversation_context(project_id, limit=6)
 
+        # Extract all folder and subfolder names dynamically from SQLite project files
+        all_project_files = self.file_repo.list_by_project(project_id)
+        project_folders = []
+        for f in all_project_files:
+            parts = f.relative_path.replace("\\", "/").split("/")
+            for p in parts[:-1]:
+                project_folders.append(p)
+        project_folders = list(set(project_folders))
+
         # 1. Check query intent mode and learning objective
-        intent_data = self.planner.classify_intent(query)
+        intent_data = self.planner.classify_intent(query, project_folders=project_folders)
         mode = intent_data["mode"]
         objective = intent_data["objective"]
         is_casual = (mode == "casual")
@@ -297,7 +376,7 @@ class WorkflowEngine:
         if is_casual:
             symbols_context = ""
         else:
-            symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query)
+            symbols_context = self._retrieve_relevant_code_context(project_id, project.path, query, mode)
 
         # Determine framework and database strings, filtering out "Unknown" and "None" strings
         fw_str = project.framework if (project.framework and project.framework not in {"Unknown", "None"}) else "General Workspace (No specific framework detected)"
@@ -305,6 +384,18 @@ class WorkflowEngine:
 
         # 3. Project Intelligence Agent Layer
         full_response_chunks = []
+
+        if mode == "codebase_explore":
+            files_tree_str = self._build_visual_tree([f.relative_path for f in all_project_files])
+            tree_prefix = (
+                f"### 📂 Project Directory Structure:\n"
+                f"```plaintext\n"
+                f"{files_tree_str}\n"
+                f"```\n\n"
+                f"──────────══════════──────────\n\n"
+            )
+            full_response_chunks.append(tree_prefix)
+            yield tree_prefix
         for token in self.project_agent.answer_user_query_stream(
             project_name=project.name,
             framework=fw_str,

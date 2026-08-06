@@ -451,6 +451,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
               >
                 {renderContent(main)}
 
+                {/* Active thinking/generating indicator */}
+                {isLast && isLoading && !hasFinishedExplanation && (
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      marginTop: 12,
+                      padding: '6px 12px',
+                      background: 'rgba(255, 255, 255, 0.02)',
+                      border: '1px solid rgba(255, 255, 255, 0.04)',
+                      borderRadius: 8,
+                      width: 'fit-content',
+                    }}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                    <span
+                      style={{
+                        fontSize: 10.5,
+                        color: 'var(--txt-muted)',
+                        fontFamily: 'monospace',
+                      }}
+                    >
+                      ASTA is thinking...
+                    </span>
+                  </div>
+                )}
+
                 {/* Streaming suggested questions indicator */}
                 {isStreamingThis && (
                   <div

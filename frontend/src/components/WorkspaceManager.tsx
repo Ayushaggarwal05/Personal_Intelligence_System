@@ -29,6 +29,7 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
     e.preventDefault();
     setError(null);
     if (!inputPath.trim()) return;
+    setIsScanning(true);
     try {
       const res = await fetch("http://localhost:8000/api/workspace/register", {
         method: "POST",
@@ -42,9 +43,11 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
         handleScan(data.id, data.path);
       } else {
         setError(data.detail || "Failed to register workspace.");
+        setIsScanning(false);
       }
     } catch {
       setError("Backend service is offline.");
+      setIsScanning(false);
     }
   };
 

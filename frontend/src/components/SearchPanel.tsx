@@ -33,7 +33,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
   }, [query, projectId]);
 
   const handleSearch = async (q: string) => {
-    if (!projectId || !q) return;
+    if (!projectId) return;
     setQuery(q);
     setSuggestions([]);
     try {
@@ -44,8 +44,14 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
     } catch { /* noop */ }
   };
 
+  useEffect(() => {
+    if (projectId) {
+      handleSearch(query);
+    }
+  }, [projectId, filterType]);
+
   return (
-    <div className="asta-sidebar-card flex flex-col overflow-hidden flex-1 min-h-0 gap-4">
+    <div className="asta-sidebar-card flex flex-col gap-4">
       {/* Header */}
       <div className="flex flex-col gap-2 flex-shrink-0">
         <div className="flex items-center gap-2 text-txtPrimary">
@@ -132,7 +138,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
       </div>
 
       {/* Results */}
-      <div className="flex-1 overflow-y-auto flex flex-col gap-2.5 min-h-0 scrollbar-thin">
+      <div className="overflow-y-auto flex flex-col gap-2.5 scrollbar-thin" style={{ maxHeight: '350px' }}>
         {results.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-8 px-2 select-none">
             <div

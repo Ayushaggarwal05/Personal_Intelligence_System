@@ -23,8 +23,9 @@ class PromptLoaderService:
     def load_prompt(self, category: str, name: str) -> str:
         """Loads prompt from in-memory cache or files, writing default placeholder if missing."""
         cache_key = f"{category}/{name}"
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+        # Bypass caching during development to enable hot-reloading of templates from disk
+        # if cache_key in self._cache:
+        #     return self._cache[cache_key]
 
         category_dir = os.path.join(self.prompts_dir, category)
         os.makedirs(category_dir, exist_ok=True)

@@ -5,7 +5,7 @@ import { ChatWindow } from "./components/ChatWindow";
 import { DiagramViewer } from "./components/DiagramViewer";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { WorkspaceStats } from "./components/WorkspaceStats";
-import { Layers, Settings, MessageSquare } from "lucide-react";
+import { Layers, Settings, MessageSquare, Folder } from "lucide-react";
 
 const TABS = [
   {
@@ -33,7 +33,7 @@ export default function App() {
     >
       {/* ── Sidebar ───────────────────────────────────────────── */}
       <aside
-        className="flex flex-col h-screen overflow-y-auto flex-shrink-0 sidebar-bg"
+        className="flex flex-col h-screen overflow-hidden flex-shrink-0 sidebar-bg"
         style={{
           width: 250,
           borderRight: "1px solid var(--border)",
@@ -99,8 +99,8 @@ export default function App() {
             isScanning={isScanning}
             setIsScanning={setIsScanning}
           />
-          <SearchPanel projectId={projectId} />
           <WorkspaceStats projectId={projectId} stats={stats} />
+          <SearchPanel projectId={projectId} />
         </div>
 
         {/* Sidebar Footer */}
@@ -248,10 +248,32 @@ export default function App() {
         </header>
 
         {/* Active Content */}
-        <section className="flex-1 overflow-hidden">
+        <section className="flex-1 overflow-hidden relative">
           {activeTab === "explain" && <ChatWindow projectId={projectId} />}
           {activeTab === "diagrams" && <DiagramViewer projectId={projectId} />}
           {activeTab === "settings" && <SettingsDrawer projectId={projectId} />}
+
+          {isScanning && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 backdrop-blur-md z-50 animate-fade-in">
+              <div className="asta-sidebar-card flex flex-col items-center gap-6 p-10 max-w-sm text-center border border-[var(--accent)]/30 shadow-[0_0_50px_rgba(77,124,115,0.15)] rounded-3xl">
+                {/* Scanner animation node */}
+                <div className="relative w-20 h-20 rounded-2xl border border-[var(--accent)] flex items-center justify-center overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--accent)]/20 to-transparent animate-pulse" />
+                  <Folder size={32} className="text-[var(--accent)] animate-bounce" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <h3 className="font-heading font-bold text-sm text-[var(--txt-primary)]">Indexing Project Workspace</h3>
+                  <p className="text-xs text-[var(--txt-muted)] leading-relaxed">
+                    ASTA is reading files, parsing code symbols, and building your personal engineer intelligence database.
+                  </p>
+                </div>
+                {/* Progress bar simulation */}
+                <div className="w-full h-1 bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
+                  <div className="h-full bg-[var(--accent)] animate-[shimmer_1.5s_infinite]" style={{ width: '60%' }} />
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       </main>
     </div>
