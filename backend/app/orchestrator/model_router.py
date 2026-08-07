@@ -48,6 +48,49 @@ class ModelRouter:
             pass
         return False
 
+    def auto_start_local_ollama(self) -> bool:
+        """Attempts to dynamically launch the local Ollama desktop service if offline (Windows, Mac, Linux)."""
+        import os
+        import platform
+        import subprocess
+        import time
+
+        system = platform.system().lower()
+        logger.info(f"[ModelRouter] Local Ollama service is offline. Attempting auto-start for system '{system}'...")
+        
+        try:
+            if system == "windows":
+                local_app_data = os.environ.get("LOCALAPPDATA", "")
+                ollama_exe = os.path.join(local_app_data, "Programs", "Ollama", "ollama app.exe")
+                if os.path.exists(ollama_exe):
+                    logger.info(f"[ModelRouter] Starting Ollama Windows desktop application at: {ollama_exe}")
+                    # Spawn the Windows desktop process without blocking FastAPI thread
+                    subprocess.Popen([ollama_exe], close_fds=True, creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+                else:
+                    logger.warning("[ModelRouter] Ollama Windows executable path not found. Attempting 'ollama serve' command...")
+                    subprocess.Popen(["ollama", "serve"], close_fds=True, creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP)
+
+            elif system == "darwin": # macOS
+                logger.info("[ModelRouter] Starting Ollama on macOS via open command...")
+                subprocess.Popen(["open", "-a", "Ollama"], close_fds=True)
+
+            else: # Linux and others
+                logger.info("[ModelRouter] Starting Ollama on Linux via command 'ollama serve'...")
+                subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+
+            # Poll the socket to see if it wakes up (up to 15 seconds)
+            for i in range(15):
+                time.sleep(1.0)
+                if self.check_local_ollama_health():
+                    logger.info(f"[ModelRouter] Local Ollama service woke up and connected successfully in {i+1} seconds!")
+                    return True
+            
+            logger.warning("[ModelRouter] Ollama launched but failed to connect within 15 seconds.")
+        except Exception as e:
+            logger.warning(f"[ModelRouter] Failed to auto-start local Ollama service: {e}")
+        
+        return False
+
     def generate(self, prompt: str, system_prompt: Optional[str] = None, json_format: bool = False, provider: Optional[str] = None) -> str:
         """Executes prompt inference routing between local and cloud providers with auto-fallback policies."""
         if not provider:
@@ -57,7 +100,9 @@ class ModelRouter:
         
         # Auto fallback check if provider is set to local but Ollama is offline
         if provider == "local" and not self.check_local_ollama_health():
-            logger.warning("[ModelRouter] Local Ollama service is offline. Evaluating cloud providers fallback...")
+            # Try to auto-start it first!
+            if not self.auto_start_local_ollama():
+                logger.warning("[ModelRouter] Local Ollama service is offline. Evaluating cloud providers fallback...")
             if settings.GEMINI_API_KEY:
                 logger.info("[ModelRouter] Falling back to Gemini Cloud provider.")
                 provider = "gemini"
@@ -151,6 +196,9 @@ class ModelRouter:
             provider = settings.ACTIVE_LLM_PROVIDER.lower()
         else:
             provider = provider.lower()
+
+        if provider == "local" and not self.check_local_ollama_health():
+            self.auto_start_local_ollama()
 
         if provider == "local" and self.check_local_ollama_health():
             url = f"{settings.OLLAMA_HOST}/api/generate"

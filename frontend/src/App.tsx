@@ -259,17 +259,26 @@ export default function App() {
                 {/* Scanner animation node */}
                 <div className="relative w-20 h-20 rounded-2xl border border-[var(--accent)] flex items-center justify-center overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[var(--accent)]/20 to-transparent animate-pulse" />
-                  <Folder size={32} className="text-[var(--accent)] animate-bounce" />
+                  <Folder
+                    size={32}
+                    className="text-[var(--accent)] animate-bounce"
+                  />
                 </div>
                 <div className="flex flex-col gap-2">
-                  <h3 className="font-heading font-bold text-sm text-[var(--txt-primary)]">Indexing Project Workspace</h3>
+                  <h3 className="font-heading font-bold text-sm text-[var(--txt-primary)]">
+                    Indexing Project Workspace
+                  </h3>
                   <p className="text-xs text-[var(--txt-muted)] leading-relaxed">
-                    ASTA is reading files, parsing code symbols, and building your personal engineer intelligence database.
+                    ASTA is reading files, parsing code symbols, and building
+                    your personal engineer intelligence database.
                   </p>
                 </div>
                 {/* Progress bar simulation */}
                 <div className="w-full h-1 bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
-                  <div className="h-full bg-[var(--accent)] animate-[shimmer_1.5s_infinite]" style={{ width: '60%' }} />
+                  <div
+                    className="h-full bg-[var(--accent)] animate-[shimmer_1.5s_infinite]"
+                    style={{ width: "60%" }}
+                  />
                 </div>
               </div>
             </div>

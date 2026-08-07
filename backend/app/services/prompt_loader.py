@@ -17,6 +17,7 @@ class PromptLoaderService:
             "chat/system_prompt.txt": ["project_context"],
             "interview/generate_q.txt": ["project_name", "framework", "database_type", "symbols", "git_changes"],
             "interview/score_answer.txt": ["framework", "database_type", "symbols", "question", "user_answer"],
+            "interview/chat_followup.txt": ["project_name", "framework", "database_type", "symbols"],
             "planner/plan.txt": ["user_intent"]
         }
 
