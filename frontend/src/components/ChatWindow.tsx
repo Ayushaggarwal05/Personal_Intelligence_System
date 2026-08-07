@@ -302,6 +302,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const wsRef     = useRef<WebSocket | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -314,10 +315,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
     return () => ws.close();
   }, []);
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setIsLoading(false);
+    setMessages(prev => {
+      const u = [...prev];
+      if (u.length > 0 && u[u.length - 1].role === "assistant") {
+        const lastMsg = u[u.length - 1];
+        if (!lastMsg.content.trim()) {
+          return u.slice(0, -1);
+        } else {
+          u[u.length - 1] = {
+            role: "assistant",
+            content: lastMsg.content + "\n\n⚠️ *[Generation interrupted by user]*"
+          };
+          return u;
+        }
+      }
+      return u;
+    });
+  };
+
   /* ── Core streaming fetch ─────────────────────────────── */
   const streamQuery = async (query: string, history: Message[]) => {
     setIsLoading(true);
     setMessages(prev => [...prev, { role: "assistant", content: "" }]);
+    
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const res = await fetch("http://localhost:8000/api/chat/stream", {
         method: "POST",
@@ -327,6 +356,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
           query,
           history: history.map(m => ({ role: m.role, content: m.content })),
         }),
+        signal: controller.signal,
       });
       if (res.ok && res.body) {
         const reader  = res.body.getReader();
@@ -348,13 +378,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
           { role: "assistant", content: "Sorry — I encountered an issue querying the model. Please check your Ollama connection." },
         ]);
       }
-    } catch {
+    } catch (err: any) {
+      if (err.name === "AbortError") {
+        return;
+      }
       setMessages(prev => [
         ...prev.slice(0, -1),
         { role: "assistant", content: "Failed to connect to the backend server. Is Uvicorn running on port 8000?" },
       ]);
     } finally {
       setIsLoading(false);
+      abortControllerRef.current = null;
     }
   };
 
@@ -633,20 +667,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
             }}
           />
           <button
-            type="submit"
-            disabled={!projectId || isLoading || !input.trim()}
-            className="flex items-center justify-center rounded-full flex-shrink-0"
+            type={isLoading ? "button" : "submit"}
+            onClick={isLoading ? handleStop : undefined}
+            disabled={!projectId || (!isLoading && !input.trim())}
+            className={`flex items-center justify-center rounded-full flex-shrink-0 ${
+              isLoading ? "asta-stop-pulse" : ""
+            }`}
             style={{
               width: 32,
               height: 32,
-              background: (!projectId || isLoading || !input.trim()) ? 'transparent' : 'var(--accent)',
-              color: (!projectId || isLoading || !input.trim()) ? 'var(--txt-disabled)' : '#F4F6F5',
+              background: isLoading
+                ? 'var(--error)'
+                : (!projectId || !input.trim())
+                  ? 'transparent'
+                  : 'var(--accent)',
+              color: isLoading
+                ? '#FFFFFF'
+                : (!projectId || !input.trim())
+                  ? 'var(--txt-disabled)'
+                  : '#F4F6F5',
               border: 'none',
-              cursor: (!projectId || isLoading || !input.trim()) ? 'not-allowed' : 'pointer',
-              transition: 'all 200ms ease',
+              cursor: (!projectId || (!isLoading && !input.trim())) ? 'not-allowed' : 'pointer',
+              transition: 'all 220ms ease',
             }}
           >
-            <Send size={13} />
+            {isLoading ? (
+              <div style={{ width: 10, height: 10, borderRadius: 1.5, background: '#FFFFFF' }} />
+            ) : (
+              <Send size={13} />
+            )}
           </button>
         </form>
       </div>
