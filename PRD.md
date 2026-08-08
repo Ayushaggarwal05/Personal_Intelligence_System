@@ -495,4 +495,29 @@ PEIS is not intended to:
 - Modify source code automatically.
 - Act as a general-purpose chatbot.
 - Store duplicate copies of project files.
-- Require cloud connectivity for core functionality.
+- require cloud connectivity for core functionality.
+
+---
+
+# 8. Technical Bottlenecks & Design Challenges
+
+## 8.1 Directory Context Window Inflation vs. Subfolder Blindness
+
+When a developer queries a specific codebase folder (e.g., *"tell me about the src folder"*), ASTA must provide the LLM with enough grounding structure to explain the folder accurately without triggering hallucinations or overloading CPU memory. This presents a critical technical tradeoff:
+
+### The Bottleneck: Context Inflation
+*   **The Problem:** For larger codebases, recursively listing all child files and directory trees inside a queried folder consumes massive context window space (often exceeding 1,000+ tokens).
+*   **The Result:** Wastes local LLM context headroom, slows down CPU pre-fill inference times, and causes socket timeouts or truncated responses.
+
+### The Tradeoff: Subfolder Blindness & Hallucinations
+*   **The Problem:** If we optimize context by only sending the immediate Level-1 files and folder names (e.g., sending `📂 utils/` but omitting the files inside it), the LLM is left with a "blind spot." It knows a folder exists but is blind to its contents.
+*   **The Result:** To provide a detailed explanation, the LLM falls back to its pre-trained memory and **hallucinates standard boilerplate files** (like guessing `src/utils/AppUtil.js` or `src/index.js` instead of seeing your real `motion.js` and `main.jsx`), destroying factual grounding.
+
+### Resolution Strategy: Bounded 1-Level Directory Expansion
+
+To resolve this scalability challenge, ASTA implements a **Bounded 1-Level Directory Expansion** mechanism in its RAG pipeline:
+1.  **Strict 1-Level Depth Limit:** The Python backend maps and retrieves folder structures exactly 1 level deep relative to the queried directory, displaying only immediate child files and immediate subdirectories.
+2.  **Capped File Listing:** For the queried directory or root level, the backend lists **only the first 3 files** as grounding samples, appending a count label (e.g., `... [+25 more files]`) for the remaining files to preserve memory.
+3.  **Generic RAG Boundary Note:** For any nested subdirectories listed (folders marked with `📂`), their sub-contents are hidden. A strict, completely generic boundary instruction is appended to the context:
+    `[RAG BOUNDARY NOTE: The contents of any nested subdirectories listed above (folders marked with 📂) are HIDDEN from your view. Do NOT assume, invent, or guess any file names inside those folders. Only explain their conceptual roles based on the folder name. If the user wants to explore their files, advise them to ask about that specific folder directly.]`
+4.  **Result:** This guarantees that the total context payload for any folder query remains extremely lightweight (under 200 tokens) regardless of the codebase scale, while providing a clear logical boundary that prevents the LLM from making up nested file names.

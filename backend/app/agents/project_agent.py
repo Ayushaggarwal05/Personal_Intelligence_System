@@ -51,7 +51,7 @@ class ProjectAgent(BaseAgent):
                     f"Project Name: {project_name}\n"
                     f"Frameworks/Languages: {framework}\n"
                     f"Databases: {database_type}\n\n"
-                    f"## Indexed Codebase Symbols:\n{symbols_context}\n\n"
+                    f"## Codebase Context & Directory Structure:\n{symbols_context}\n\n"
                     f"## Recent Chat History:\n{chat_history or 'No previous messages.'}\n"
                 )
             }
@@ -71,7 +71,7 @@ class ProjectAgent(BaseAgent):
                     f"Project Name: {project_name}\n"
                     f"Frameworks/Languages: {framework}\n"
                     f"Databases: {database_type}\n\n"
-                    f"## Indexed Codebase Symbols:\n{symbols_context}\n\n"
+                    f"## Codebase Context & Directory Structure:\n{symbols_context}\n\n"
                     f"## Recent Chat History:\n{chat_history or 'No previous messages.'}\n"
                 )
             }
@@ -142,7 +142,7 @@ class ProjectAgent(BaseAgent):
                     f"Project Name: {project_name}\n"
                     f"Frameworks/Languages: {framework}\n"
                     f"Databases: {database_type}\n\n"
-                    f"## Indexed Codebase Symbols:\n{symbols_context}\n\n"
+                    f"## Codebase Context & Directory Structure:\n{symbols_context}\n\n"
                     f"## Recent Chat History:\n{chat_history or 'No previous messages.'}\n"
                 )
             }
@@ -162,7 +162,7 @@ class ProjectAgent(BaseAgent):
                     f"Project Name: {project_name}\n"
                     f"Frameworks/Languages: {framework}\n"
                     f"Databases: {database_type}\n\n"
-                    f"## Indexed Codebase Symbols:\n{symbols_context}\n\n"
+                    f"## Codebase Context & Directory Structure:\n{symbols_context}\n\n"
                     f"## Recent Chat History:\n{chat_history or 'No previous messages.'}\n"
                 )
             }

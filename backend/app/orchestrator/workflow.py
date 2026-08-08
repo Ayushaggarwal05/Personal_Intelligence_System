@@ -125,7 +125,8 @@ class WorkflowEngine:
             matched_symbols = self.symbol_repo.search_in_project(project_id, search_query="", limit=15)
 
         symbols_str = "\n".join([
-            f"- [{s.type.upper()}] {s.name}: {s.signature or ''}" 
+            f"- [{s.type.upper()}] {s.name} (defined in {s.file.relative_path.replace('\\\\', '/').replace('\\', '/')}): {s.signature or ''}"
+            if s.file else f"- [{s.type.upper()}] {s.name}: {s.signature or ''}"
             for s in matched_symbols
         ]) or "No matching structures found."
 
@@ -159,25 +160,42 @@ class WorkflowEngine:
         # Find target files in user query words
         words_clean = [w.strip("?.,!\"'()[]{}").lower() for w in query.split()]
         
-        # Build set of all folder paths in the project workspace to detect queries matching subdirectories
-        all_folders = set()
+        # Build the dynamic files_by_parent mapping dictionary in RAM
+        files_by_parent = {}
         for f in all_project_files:
-            parts = f.relative_path.replace("\\", "/").split("/")
-            for i in range(1, len(parts)):
-                all_folders.add("/".join(parts[:i]).lower())
+            normalized = f.relative_path.replace("\\", "/").strip("/")
+            parts = normalized.split("/")
+            for i in range(len(parts)):
+                parent = "/".join(parts[:i])
+                child = parts[i]
+                if parent not in files_by_parent:
+                    files_by_parent[parent] = set()
+                if i == len(parts) - 1:
+                    files_by_parent[parent].add(f"📄 {child}")
+                else:
+                    files_by_parent[parent].add(f"📂 {child}/")
 
-        # Check if query keywords match any of these folder names
+        files_by_parent_lower = {k.lower(): v for k, v in files_by_parent.items()}
+
+        # Check if query keywords match any folder paths in the project
         queried_folders_files = {}
-        for folder in all_folders:
-            folder_name = folder.split("/")[-1]
+        for folder_path in files_by_parent.keys():
+            if not folder_path:
+                continue
+            folder_name = folder_path.split("/")[-1].lower()
             if folder_name in words_clean:
-                # Find all files belonging to this folder
-                folder_prefix = folder + "/"
-                files_in_folder = [
-                    f.relative_path for f in all_project_files
-                    if f.relative_path.replace("\\", "/").lower().startswith(folder_prefix)
-                ]
-                queried_folders_files[folder] = files_in_folder
+                # Retrieve only the immediate children of this folder
+                children = sorted(list(files_by_parent_lower.get(folder_path.lower(), set())))
+                
+                # Filter folders and files to apply the 3-file maximum limit
+                folders = [c for c in children if c.startswith("📂")]
+                files = [c for c in children if c.startswith("📄")]
+                max_files_limit = 3
+                if len(files) > max_files_limit:
+                    files = files[:max_files_limit] + [f"... [+{len(files) - max_files_limit} more files]"]
+                
+                queried_folders_files[folder_path] = folders + files
+
         target_file_contents = []
         for w in words_clean:
             if w in existing_filenames:
@@ -206,13 +224,34 @@ class WorkflowEngine:
         if overview_content:
             context_parts.append(overview_content)
 
+        # 1. Always append Project Root structure cleanly separated
+        root_items = sorted(list(files_by_parent.get("", set())))
+        root_folders = [item for item in root_items if item.startswith("📂")]
+        root_files = [item for item in root_items if item.startswith("📄")]
+
+        # Apply 3-file maximum limit to root files
+        max_root_files_limit = 3
+        if len(root_files) > max_root_files_limit:
+            root_files = root_files[:max_root_files_limit] + [f"... [+{len(root_files) - max_root_files_limit} more files]"]
+
+        root_context = []
+        if root_folders:
+            root_context.append("### Project Root Folders (Directories directly at the workspace root):\n" + "\n".join(root_folders))
+        if root_files:
+            root_context.append("### Project Root Files (Configuration/Data files directly at the workspace root):\n" + "\n".join(root_files))
+        
+        if root_context:
+            context_parts.append("\n\n".join(root_context))
+
+        # 2. Append specific queried folders' contents (if any folder matched the user query)
         if queried_folders_files:
             folder_info_parts = []
-            for folder_path, files in queried_folders_files.items():
-                files_list_str = "\n".join([f"- {f}" for f in files])
+            for folder_path, children in queried_folders_files.items():
+                children_list_str = "\n".join(children)
                 folder_info_parts.append(
-                    f"### All Files inside the queried folder '{folder_path}':\n"
-                    f"{files_list_str}"
+                    f"### Files & subdirectories directly inside the queried folder '{folder_path}/':\n"
+                    f"{children_list_str}\n\n"
+                    f"[RAG BOUNDARY NOTE: The contents of any nested subdirectories listed above (folders marked with 📂) are HIDDEN from your current view. Do NOT assume, invent, or guess any file names inside those folders. Only explain their conceptual roles based on the folder name. If the user wants to explore their files, advise them to ask about that specific folder directly.]"
                 )
             context_parts.append("\n\n".join(folder_info_parts))
             
