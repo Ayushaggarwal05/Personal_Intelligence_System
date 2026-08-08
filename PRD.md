@@ -95,70 +95,29 @@ PEIS automatically understands projects and generates engineering knowledge.
 
 ---
 
-## Feature 3 — Project-Specific Mock Interview Coach
+## Feature 3 — Progressive Learning Follow-up Questions
 
-PEIS becomes an interview coach trained specifically on the developer's own projects.
+PEIS generates dynamic, codebase-specific progressive study questions to help you prepare for technical interviews based on your conversation context.
 
-### Technical Interview
+### Progressive Questioning
 
-* Project-specific questions
-* Architecture questions
-* Database questions
-* API questions
-* Design pattern questions
-* Trade-off questions
-* Follow-up questions
-
-### HR Interview
-
-* STAR-based questions
-* Engineering decisions
-* Team collaboration
-* Challenges faced
-* Optimization decisions
-
-### Interactive Session
-
-* Live interview mode
-* Multi-round questioning
-* Adaptive questioning
-* Difficulty progression
+* Custom follow-up questions generated after every chat response.
+* Deeply tied to the exact technology stack and files in the explanation context.
+* Highlights potential design decisions and developer trade-offs.
+* Promotes technical vocabulary practice and articulation improvement.
 
 ---
 
-## Feature 4 — Evaluation & Engineering Scorecard
+## Feature 4 — Rolling Context Memory
 
-PEIS evaluates interview answers using indexed project knowledge.
+PEIS logs conversation messages and maintains a rolling message history limit to keep the prompt payloads clean and memory footprint small.
 
-### Evaluation
+### Rolling Retention
 
-* Keyword extraction
-* Missing terminology detection
-* Engineering concept grading
-* Confidence score
-* Project understanding score
-
-### Feedback
-
-Highlights missing concepts such as
-
-* Connection Pooling
-* JWT Rotation
-* Caching
-* RBAC
-* Dependency Injection
-* Optimistic Locking
-* Rate Limiting
-* Async Processing
-* CQRS
-* Event-driven Architecture
-
-### Generates
-
-* Senior-level model answer
-* Improvement suggestions
-* Missing concepts
-* Better explanation examples
+* Automatically parses chat query intent to determine technical substance.
+* Records important queries to local SQLite history (e.g. system design questions, bug fixes, module interactions).
+* Automatically prunes chat history, retaining a maximum of 20 rolling messages.
+* Prevents context window bloat and keeps local inference speeds fast.
 
 ---
 
@@ -271,57 +230,33 @@ The Intelligence Layer stores derived knowledge rather than project files.
 
 ---
 
-## Layer 4 — Agent Layer
+## Layer 4 — Agent & Orchestration Layer
 
-A team of specialized AI agents coordinates all reasoning.
+PEIS runs on a hybrid model combining deterministic Python workflow orchestrators and specialized generative AI agents.
 
-### Planner Agent
+### Deterministic Python Orchestrator (WorkflowEngine)
 
-* Understands user intent
-* Creates execution plan
-* Selects required agents
+* Parses query intent (`_classify_intent()`) using fast heuristics and fallback LLM classification.
+* Retrieves file content, parses symbols from database, and binds contextual prompts.
+* Triggers workspace directory scanning, dependency checking, and change detection.
 
-### Workspace Agent
+### Project Intelligence Agent (ProjectAgent)
 
-* Monitors projects
-* Detects changes
-* Maintains workspace index
+* Explains codebase implementation details, modules, configuration files, and design choices.
+* Compiles comprehensive system overviews and explains structural logic.
 
-### Project Intelligence Agent
+### Diagram Agent (DiagramAgent)
 
-* Understands project architecture
-* Detects frameworks
-* Generates project knowledge
+* Generates formatted Mermaid.js diagrams to visualize class relationships, schemas, and flows.
 
-### Retrieval Agent
+### Interview Agent (InterviewAgent)
 
-* Retrieves relevant context
-* Performs hybrid search
+* Generates progressive learning follow-up questions tailored to technical codebase contexts.
 
-### Interview Coach Agent
+### Memory Agent (MemoryAgent)
 
-* Generates technical interviews
-* Generates HR interviews
-
-### Diagram Agent
-
-* Produces Mermaid diagrams
-* Generates architecture flows
-
-### Review Agent
-
-* Evaluates interview answers
-* Generates engineering feedback
-
-### Reflection Agent
-
-* Validates generated responses
-* Improves answer quality
-
-### Memory Agent
-
-* Maintains long-term project memory
-* Stores conversational context
+* Saves user and assistant dialog messages to local SQLite database.
+* Enforces a rolling 20-message message retention limit to keep context payload lightweight.
 
 ---
 
