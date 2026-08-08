@@ -21,34 +21,40 @@ class SearchService:
     ) -> List[Dict[str, Any]]:
         """Merges keyword symbol searches and semantic chunk matches into ranked outputs."""
         results = []
+        query_clean = query.strip()
+        # If search query is empty (browsing), increase limit to 1000
+        query_limit = 1000 if not query_clean else limit
 
         # 1. Relational Database Keyword Match (SQLite)
         if search_type in {None, "file", "symbol", "route", "class", "function"}:
-            symbols = self.symbol_repo.search_in_project(project_id, query, limit=limit)
-            for s in symbols:
-                if search_type and s.type != search_type and not (search_type == "symbol" and s.type in {"class", "function"}):
-                    continue
-                results.append({
-                    "id": s.id,
-                    "title": s.name,
-                    "type": s.type,
-                    "snippet": s.signature or "",
-                    "score": 0.9, # default keyword score rank
-                    "source": "relational"
-                })
-
-            # File path matching
-            files = self.file_repo.search_by_keyword(project_id, query, limit=limit)
-            for f in files:
-                if not any(r["title"] == f.relative_path for r in results):
+            # Fetch symbols only if we are NOT strictly filtering for files
+            if search_type != "file":
+                symbols = self.symbol_repo.search_in_project(project_id, query_clean, limit=query_limit)
+                for s in symbols:
+                    if search_type and s.type != search_type and not (search_type == "symbol" and s.type in {"class", "function"}):
+                        continue
                     results.append({
-                        "id": f.id,
-                        "title": f.relative_path,
-                        "type": "file",
-                        "snippet": f"File path: {f.relative_path}",
-                        "score": 0.85,
+                        "id": s.id,
+                        "title": s.name,
+                        "type": s.type,
+                        "snippet": s.signature or "",
+                        "score": 0.9, # default keyword score rank
                         "source": "relational"
                     })
+
+            # Fetch files only if we are in "All" mode (None) or strictly in "file" mode
+            if search_type in {None, "file"}:
+                files = self.file_repo.search_by_keyword(project_id, query_clean, limit=query_limit)
+                for f in files:
+                    if not any(r["title"] == f.relative_path for r in results):
+                        results.append({
+                            "id": f.id,
+                            "title": f.relative_path,
+                            "type": "file",
+                            "snippet": f"File path: {f.relative_path}",
+                            "score": 0.85,
+                            "source": "relational"
+                        })
 
         # 2. Semantic Search Match (Vector Store)
         if search_type in {None, "chunks", "documentation"}:
@@ -74,7 +80,7 @@ class SearchService:
 
         # Sort combined results by keyword match in title, then score rank descending
         results.sort(key=lambda x: (1 if query.lower() in x["title"].lower() else 0, x["score"]), reverse=True)
-        return results[:limit]
+        return results[:query_limit]
 
     def get_search_suggestions(self, project_id: str, prefix: str, limit: int = 5) -> List[str]:
         """Provides autocomplete list of matching symbol names or filenames."""
