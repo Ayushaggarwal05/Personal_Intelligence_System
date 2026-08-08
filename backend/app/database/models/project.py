@@ -18,4 +18,3 @@ class Project(Base):
 
     # Relationships
     files = relationship("File", back_populates="project", cascade="all, delete-orphan")
-    interviews = relationship("Interview", back_populates="project", cascade="all, delete-orphan")

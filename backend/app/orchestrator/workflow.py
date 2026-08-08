@@ -7,12 +7,8 @@ from app.core.exceptions import PEISException, ProjectNotFoundException
 from app.database.repositories.project_repository import ProjectRepository
 from app.database.repositories.file_repository import FileRepository
 from app.database.repositories.symbol_repository import SymbolRepository
-from app.database.repositories.interview_repository import InterviewRepository, InterviewQARepository
 from app.agents.project_agent import ProjectAgent
 from app.agents.interview_agent import InterviewAgent
-from app.agents.review_agent import ReviewAgent
-from app.agents.reflection_agent import ReflectionAgent
-from app.agents.planner_agent import PlannerAgent
 from app.agents.memory_agent import MemoryAgent
 from app.tools.filesystem.read_file import read_workspace_file_content
 from app.tools.project.detect_dependencies import extract_dependencies, extract_dependencies_categorized
@@ -25,16 +21,94 @@ class WorkflowEngine:
         self.project_repo = ProjectRepository(db)
         self.file_repo = FileRepository(db)
         self.symbol_repo = SymbolRepository(db)
-        self.interview_repo = InterviewRepository(db)
-        self.qa_repo = InterviewQARepository(db)
         
         # Instantiate Agents
-        self.planner = PlannerAgent()
         self.project_agent = ProjectAgent()
         self.interview_agent = InterviewAgent()
-        self.review_agent = ReviewAgent()
-        self.reflection_agent = ReflectionAgent()
         self.memory_agent = MemoryAgent(db)
+
+    def _classify_intent(self, query: str, project_folders: Optional[List[str]] = None) -> Dict[str, str]:
+        """Classifies the user query intent (mode) and the learning objective."""
+        query_lower = query.lower().strip("?.,!\"' ")
+        
+        # 1. Fast heuristic checks for common greetings
+        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta", "yo", "wave"}
+        if query_lower in greetings or any(query_lower.startswith(g) for g in ["who are you", "how are you", "introduce yourself"]):
+            return {"mode": "casual", "objective": "concept_explain"}
+
+        # Heuristics-First keyword pass
+        explore_kws = {"folder", "directory", "directories", "files in", "structure of", "whats in", "what's in", "show me files", "where is", "how to find", "find file", "find class", "find route", "locate"}
+        specific_dirs = {"backend", "frontend", "app", "src", "docs", "prompts", "tests", "components", "pages", "services"}
+        if project_folders:
+            specific_dirs = specific_dirs | {f.lower() for f in project_folders}
+            
+        if any(kw in query_lower for kw in explore_kws):
+            if any(d in query_lower for d in specific_dirs) and "structure" not in query_lower and "tree" not in query_lower:
+                return {"mode": "project_explain", "objective": "project_pitch"}
+            return {"mode": "codebase_explore", "objective": "project_pitch"}
+
+        # Architecture discussion
+        arch_kws = {"why react", "why django", "why sqlite", "why fastapi", "trade-off", "tradeoff", "scalability", "alternatives", "design critique", "scale"}
+        if any(kw in query_lower for kw in arch_kws):
+            return {"mode": "architecture_discuss", "objective": "design_critique"}
+
+        # Conceptual general technical
+        tech_kws = {"what is jwt", "what is oauth", "what is rest", "what is clean architecture", "concept of", "definition of", "explain docker"}
+        if any(kw in query_lower for kw in tech_kws):
+            return {"mode": "general_technical", "objective": "concept_explain"}
+
+        # Learning guidance
+        guidance_kws = {"study plan", "learning path", "how to prepare", "prepare for", "career advice", "guide me", "mock interview"}
+        if any(kw in query_lower for kw in guidance_kws):
+            return {"mode": "learning_guidance", "objective": "concept_explain"}
+
+        # Explicit project explanation
+        explain_kws = {"explain how", "route logic", "database schema", "model design", "login flow", "auth logic"}
+        if any(kw in query_lower for kw in explain_kws):
+            return {"mode": "project_explain", "objective": "project_pitch"}
+            
+        # 2. Direct ModelRouter classification fallback
+        from app.orchestrator.model_router import ModelRouter
+        router = ModelRouter()
+        prompt = (
+            f"Analyze the following user query: '{query}'.\n"
+            f"Classify the user intent and learning objective into exactly one category for each:\n\n"
+            f"MODE CATEGORIES:\n"
+            f"- \"casual\": Greetings, social talk, introductions, general banter.\n"
+            f"- \"project_explain\": Explaining codebase concepts, files, structures, modules, auth logic, or databases.\n"
+            f"- \"architecture_discuss\": Systems design critique, framework choice rationale, scaling limits, design trade-offs.\n"
+            f"- \"general_technical\": Conceptual questions NOT specific to the current codebase (e.g. 'What is JWT', 'What is REST').\n"
+            f"- \"codebase_explore\": Navigating, finding file locations, pathways, or relationships between symbols.\n"
+            f"- \"learning_guidance\": Study plans, career tips, general study/preparation guidance.\n\n"
+            f"OBJECTIVE CATEGORIES:\n"
+            f"- \"concept_explain\": User wants to learn the general concept or definition of a technical topic.\n"
+            f"- \"project_pitch\": User wants to know how to explain their project's codebase implementation in an interview setting.\n"
+            f"- \"design_critique\": User wants to critique design choices, analyze scaling/locking limitations, database connection pooling, or trade-offs.\n"
+            f"- \"vocab_coaching\": User wants to coach articulation, improve technical phrasing, learn vocabulary signaling, or find out what an interviewer expects to hear.\n\n"
+            f"Respond strictly in JSON format matching this schema:\n"
+            f"{{\n"
+            f"  \"mode\": \"casual\" | \"project_explain\" | \"architecture_discuss\" | \"general_technical\" | \"codebase_explore\" | \"learning_guidance\",\n"
+            f"  \"objective\": \"concept_explain\" | \"project_pitch\" | \"design_critique\" | \"vocab_coaching\"\n"
+            f"}}"
+        )
+        try:
+            raw_res = router.generate(prompt=prompt, system_prompt="You are a query classification helper.", json_format=True)
+            clean_res = raw_res.strip()
+            if clean_res.startswith("```json"):
+                clean_res = clean_res[7:]
+            if clean_res.endswith("```"):
+                clean_res = clean_res[:-3]
+            res = json.loads(clean_res.strip())
+            mode = res.get("mode", "project_explain")
+            objective = res.get("objective", "project_pitch")
+            if mode in {"casual", "project_explain", "architecture_discuss", "general_technical", "codebase_explore", "learning_guidance"} and \
+               objective in {"concept_explain", "project_pitch", "design_critique", "vocab_coaching"}:
+                return {"mode": mode, "objective": objective}
+        except Exception:
+            pass
+            
+        # 3. Fallback
+        return {"mode": "project_explain", "objective": "project_pitch"}
 
     def _build_visual_tree(self, files: List[str]) -> str:
         """Generates a clean, recursive visual directory tree of the workspace."""
@@ -323,7 +397,7 @@ class WorkflowEngine:
         project_folders = list(set(project_folders))
 
         # 1. Check query intent mode and learning objective
-        intent_data = self.planner.classify_intent(query, project_folders=project_folders)
+        intent_data = self._classify_intent(query, project_folders=project_folders)
         mode = intent_data["mode"]
         objective = intent_data["objective"]
         is_casual = (mode == "casual")
@@ -406,7 +480,7 @@ class WorkflowEngine:
         project_folders = list(set(project_folders))
 
         # 1. Check query intent mode and learning objective
-        intent_data = self.planner.classify_intent(query, project_folders=project_folders)
+        intent_data = self._classify_intent(query, project_folders=project_folders)
         mode = intent_data["mode"]
         objective = intent_data["objective"]
         is_casual = (mode == "casual")
@@ -475,81 +549,6 @@ class WorkflowEngine:
         if self.memory_agent.is_important_technical_query(query) or is_casual:
             self.memory_agent.record_chat_message(project_id, "user", query)
             self.memory_agent.record_chat_message(project_id, "assistant", complete_explanation)
-
-    def run_interview_generate_workflow(self, project_id: str) -> Dict[str, Any]:
-        """Executes interview question workflow: Planner -> Retrieval -> Interview Coach -> Reflection."""
-        logger.info(f"[WorkflowEngine] Starting Interview Generation Workflow for project: {project_id}")
-        project = self.project_repo.get_by_id(project_id)
-        if not project:
-            raise ProjectNotFoundException(project_id)
-
-        # 1. Check if active interview session exists, otherwise create one
-        active_interviews = self.interview_repo.list_by_project(project_id)
-        if active_interviews:
-            interview = active_interviews[-1] # reuse last session
-        else:
-            interview = self.interview_repo.create(
-                self.interview_repo.model(
-                    id=str(uuid.uuid4()),
-                    project_id=project_id,
-                    created_at=get_utc_now()
-                )
-            )
-
-        # 2. Retrieval Layer (Fetch structures & past weak areas)
-        symbols = self.symbol_repo.search_in_project(project_id, search_query="", limit=15)
-        symbols_context = "\n".join([
-            f"- [{s.type.upper()}] {s.name}" 
-            for s in symbols
-        ])
-        
-        # 3. Interview Coach execution
-        context = {"db": self.db, "project_path": project.path}
-        q_data = self.interview_agent.generate_question(context)
-
-        # 4. Save question to session history
-        qa_id = str(uuid.uuid4())
-        qa_rec = self.qa_repo.model(
-            id=qa_id,
-            interview_id=interview.id,
-            question=q_data["question"],
-            timestamp=get_utc_now()
-        )
-        self.qa_repo.create(qa_rec)
-
-        return {
-            "interview_id": interview.id,
-            "qa_id": qa_id,
-            "question": q_data["question"],
-            "focus_area": q_data.get("focus_area", "Architecture"),
-            "type": q_data.get("type", "technical")
-        }
-
-    def run_interview_review_workflow(self, interview_id: str, qa_id: str, user_answer: str, project_id: str) -> Dict[str, Any]:
-        """Executes response grading workflow: Planner -> Retrieval -> Review -> Reflection -> Response."""
-        logger.info(f"[WorkflowEngine] Starting Response Grading Review Workflow for session: {interview_id}")
-        project = self.project_repo.get_by_id(project_id)
-        if not project:
-            raise ProjectNotFoundException(project_id)
-
-        qa_rec = self.qa_repo.get_by_id(qa_id)
-        if not qa_rec:
-            raise PEISException(f"Interview Question QA ID '{qa_id}' not found.", status_code=404)
-
-        # 1. Review Agent scoring
-        context = {"db": self.db, "project_path": project.path}
-        scorecard = self.review_agent.score_answer(context, qa_rec.question, user_answer)
-
-        # 2. Reflection Agent audit verification (purge hallucinated symbols suggestion)
-        audited_scorecard = self.reflection_agent.validate_review_scorecard(context, scorecard)
-
-        # 3. Persist review results in SQLite
-        qa_rec.user_answer = user_answer
-        qa_rec.scorecard = json.dumps(audited_scorecard)
-        qa_rec.score = audited_scorecard.get("score", 0)
-        self.db.commit()
-
-        return audited_scorecard
 
     def run_compare_workflow(self, project_id_a: str, project_id_b: str) -> str:
         """Executes project comparison workflow: Planner -> Retrieval -> Project Intel -> Response."""

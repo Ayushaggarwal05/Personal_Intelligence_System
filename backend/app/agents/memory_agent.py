@@ -1,6 +1,5 @@
 from sqlalchemy.orm import Session
 from app.database.repositories.chat_repository import ChatRepository
-from app.database.repositories.interview_repository import InterviewRepository, InterviewQARepository
 from app.database.models.chat_history import ChatHistory
 from app.utils.helpers import get_utc_now
 import uuid
@@ -12,8 +11,6 @@ class MemoryAgent:
     def __init__(self, db: Session):
         self.db = db
         self.chat_repo = ChatRepository(db)
-        self.interview_repo = InterviewRepository(db)
-        self.qa_repo = InterviewQARepository(db)
 
     def is_important_technical_query(self, content: str) -> bool:
         """Determines if a chat query contains technical substance worthy of database preservation."""
@@ -73,23 +70,4 @@ class MemoryAgent:
             
         return "\n".join(lines)
 
-    def extract_user_weak_areas(self, project_id: str) -> List[str]:
-        """Parses previous interview scorecard evaluations to identify frequently missing keywords."""
-        interviews = self.interview_repo.list_by_project(project_id)
-        
-        missing_kw_counts = {}
-        for iv in interviews:
-            qas = self.qa_repo.list_by_session(iv.id)
-            for qa in qas:
-                if qa.scorecard:
-                    try:
-                        scorecard = json.loads(qa.scorecard)
-                        for kw in scorecard.get("missing_keywords", []):
-                            kw_clean = kw.lower().strip()
-                            missing_kw_counts[kw_clean] = missing_kw_counts.get(kw_clean, 0) + 1
-                    except Exception:
-                        continue
-                        
-        # Sort and return keywords that are missing most frequently (at least once)
-        sorted_kws = sorted(missing_kw_counts.items(), key=lambda x: x[1], reverse=True)
-        return [kw[0] for kw in sorted_kws if kw[1] > 0]
+
