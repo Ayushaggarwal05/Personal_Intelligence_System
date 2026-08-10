@@ -1,3 +1,4 @@
+import difflib
 from sqlalchemy.orm import Session
 from typing import List, Dict, Any, Optional
 from app.database.repositories.file_repository import FileRepository
@@ -22,31 +23,36 @@ class SearchService:
         """Merges keyword symbol searches and semantic chunk matches into ranked outputs."""
         results = []
         query_clean = query.strip()
-        # If search query is empty (browsing), increase limit to 1000
         query_limit = 1000 if not query_clean else limit
+
+        # Helper to compute fuzzy ratio
+        def fuzzy_match_score(q: str, target: str) -> float:
+            q_low = q.lower()
+            t_low = target.lower()
+            if q_low in t_low:
+                return 1.0
+            return difflib.SequenceMatcher(None, q_low, t_low).ratio()
 
         # 1. Relational Database Keyword Match (SQLite)
         if search_type in {None, "file", "symbol", "route", "class", "function"}:
-            # Fetch symbols only if we are NOT strictly filtering for files
-            if search_type != "file":
-                symbols = self.symbol_repo.search_in_project(project_id, query_clean, limit=query_limit)
-                for s in symbols:
-                    if search_type and s.type != search_type and not (search_type == "symbol" and s.type in {"class", "function"}):
-                        continue
-                    results.append({
-                        "id": s.id,
-                        "title": s.name,
-                        "type": s.type,
-                        "snippet": s.signature or "",
-                        "score": 0.9, # default keyword score rank
-                        "source": "relational"
-                    })
-
-            # Fetch files only if we are in "All" mode (None) or strictly in "file" mode
-            if search_type in {None, "file"}:
-                files = self.file_repo.search_by_keyword(project_id, query_clean, limit=query_limit)
-                for f in files:
-                    if not any(r["title"] == f.relative_path for r in results):
+            if not query_clean:
+                # Direct browse mode: fetch standard first N items
+                if search_type != "file":
+                    symbols = self.symbol_repo.search_in_project(project_id, "", limit=query_limit)
+                    for s in symbols:
+                        if search_type and s.type != search_type and not (search_type == "symbol" and s.type in {"class", "function"}):
+                            continue
+                        results.append({
+                            "id": s.id,
+                            "title": s.name,
+                            "type": s.type,
+                            "snippet": s.signature or "",
+                            "score": 0.9,
+                            "source": "relational"
+                        })
+                if search_type in {None, "file"}:
+                    files = self.file_repo.search_by_keyword(project_id, "", limit=query_limit)
+                    for f in files:
                         results.append({
                             "id": f.id,
                             "title": f.relative_path,
@@ -55,9 +61,42 @@ class SearchService:
                             "score": 0.85,
                             "source": "relational"
                         })
+            else:
+                # Fuzzy Search Mode
+                # Fetch all candidate symbols in the project
+                if search_type != "file":
+                    all_symbols = self.symbol_repo.search_in_project(project_id, "", limit=1000)
+                    for s in all_symbols:
+                        if search_type and s.type != search_type and not (search_type == "symbol" and s.type in {"class", "function"}):
+                            continue
+                        score = fuzzy_match_score(query_clean, s.name)
+                        # Keep matches with a score above 0.45
+                        if score >= 0.45:
+                            results.append({
+                                "id": s.id,
+                                "title": s.name,
+                                "type": s.type,
+                                "snippet": s.signature or "",
+                                "score": score,
+                                "source": "relational"
+                            })
+
+                if search_type in {None, "file"}:
+                    all_files = self.file_repo.search_by_keyword(project_id, "", limit=1000)
+                    for f in all_files:
+                        score = fuzzy_match_score(query_clean, f.relative_path)
+                        if score >= 0.45:
+                            results.append({
+                                "id": f.id,
+                                "title": f.relative_path,
+                                "type": "file",
+                                "snippet": f"File path: {f.relative_path}",
+                                "score": score,
+                                "source": "relational"
+                            })
 
         # 2. Semantic Search Match (Vector Store)
-        if search_type in {None, "chunks", "documentation"}:
+        if query_clean and search_type in {None, "chunks", "documentation"}:
             try:
                 query_vector = embedding_service.get_embedding(query)
                 semantic_hits = vector_store.search(
@@ -66,7 +105,6 @@ class SearchService:
                     limit=limit
                 )
                 for hit in semantic_hits:
-                    # hit contains "content", "file_id", "score", etc.
                     results.append({
                         "id": hit.get("id", ""),
                         "title": "Text Segment Match",
@@ -78,8 +116,8 @@ class SearchService:
             except Exception:
                 pass
 
-        # Sort combined results by keyword match in title, then score rank descending
-        results.sort(key=lambda x: (1 if query.lower() in x["title"].lower() else 0, x["score"]), reverse=True)
+        # Sort results descending by score
+        results.sort(key=lambda x: x["score"], reverse=True)
         return results[:query_limit]
 
     def get_search_suggestions(self, project_id: str, prefix: str, limit: int = 5) -> List[str]:
