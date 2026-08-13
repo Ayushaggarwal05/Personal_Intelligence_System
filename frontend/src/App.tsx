@@ -6,6 +6,7 @@ import { DiagramViewer } from "./components/DiagramViewer";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { WorkspaceStats } from "./components/WorkspaceStats";
 import { Layers, Settings, MessageSquare, Folder } from "lucide-react";
+import { ActivationScreen } from "./components/ActivationScreen";
 
 const TABS = [
   {
@@ -25,12 +26,18 @@ export default function App() {
   const [stats, setStats] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("explain");
+  const [showActivation, setShowActivation] = useState(() => {
+    return localStorage.getItem("asta_skip_activation") !== "true";
+  });
 
   return (
     <div
       className="flex h-screen w-screen overflow-hidden"
       style={{ background: "var(--bg-app)", color: "var(--txt-primary)" }}
     >
+      {showActivation && (
+        <ActivationScreen onComplete={() => setShowActivation(false)} />
+      )}
       {/* ── Sidebar ───────────────────────────────────────────── */}
       <aside
         className="flex flex-col h-screen overflow-hidden flex-shrink-0 sidebar-bg"

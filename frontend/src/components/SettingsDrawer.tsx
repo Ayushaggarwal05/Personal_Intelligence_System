@@ -12,6 +12,15 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
   const [groqInput, setGroqInput] = useState('');
   const [weakTopics, setWeakTopics] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [skipActivation, setSkipActivation] = useState(() => {
+    return localStorage.getItem("asta_skip_activation") === "true";
+  });
+
+  const handleToggleActivation = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const checked = e.target.checked;
+    setSkipActivation(checked);
+    localStorage.setItem("asta_skip_activation", checked ? "true" : "false");
+  };
 
   const fetchSettings = async () => {
     try {
@@ -135,8 +144,26 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
           )}
         </form>
 
+        {/* Startup Boot Sequence Toggle */}
+        <div className="border-t border-white/5 pt-4 flex items-center justify-between">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-txtPrimary font-heading font-semibold">
+              Skip Startup Boot Sequence
+            </span>
+            <span className="text-[9px] text-txtMuted font-mono uppercase tracking-wider mt-0.5">
+              Launch directly to workspace
+            </span>
+          </div>
+          <input
+            type="checkbox"
+            checked={skipActivation}
+            onChange={handleToggleActivation}
+            className="w-4 h-4 rounded bg-black/45 border border-white/10 accent-accent cursor-pointer"
+          />
+        </div>
+
         {/* Weak Areas List */}
-        <div className="mt-2 border-t border-white/5 pt-4">
+        <div className="border-t border-white/5 pt-4">
           <span className="text-[9px] text-txtMuted block mb-2.5 font-mono uppercase tracking-wider">
             TECHNICAL WEAK TOPICS HISTORY
           </span>
