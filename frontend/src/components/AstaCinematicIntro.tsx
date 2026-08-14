@@ -17,9 +17,9 @@ const STAGE_LABELS = [
     footer: "SYSTEM SEEKING TIMELINES"
   },
   {
-    header: "WEAVING THE LOOM",
-    subText: "SYNCHRONIZING TIMELINES",
-    footer: "MAPPING SYSTEM CALL TREE"
+    header: "ASTA TAKES CONTROL",
+    subText: "GRASPING THE THREADS OF TIME",
+    footer: "DIRECTING ACTIVE CODE PLOTS"
   },
   {
     header: "ASTA MATERIALIZES",
@@ -27,9 +27,9 @@ const STAGE_LABELS = [
     footer: "CORE ONLINE"
   },
   {
-    header: "ASTA TAKES CONTROL",
-    subText: "GRASPING THE THREADS OF TIME",
-    footer: "DIRECTING ACTIVE CODE PLOTS"
+    header: "WEAVING THE LOOM",
+    subText: "SYNCHRONIZING TIMELINES",
+    footer: "MAPPING SYSTEM CALL TREE"
   },
   {
     header: "COLLAPSING INTO CORE",
@@ -287,35 +287,43 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
             rightX = lerp(1000, 650, u);
             threadOpacity = Math.min(1, (t - 1500) / 300) * 0.7;
           } else if (t >= 3200 && t < 4800) {
+            // Stage 3: ASTA Takes Control (Silhouette materializes & hand nodes expand)
             const u = (t - 3200) / 1600;
-            leftX = lerp(350, 500, u);
-            rightX = lerp(650, 500, u);
-            threadOpacity = 0.7;
-          } else if (t >= 4800 && t < 6500) {
-            leftX = 500;
-            rightX = 500;
-            threadOpacity = 0.7;
-          } else if (t >= 6500 && t < 8200) {
-            const u = (t - 6500) / 1700;
-            leftX = lerp(500, 360, u);
+            leftX = lerp(350, 360, u);
             leftY = lerp(300, 330, u);
-            rightX = lerp(500, 640, u);
+            rightX = lerp(650, 640, u);
             rightY = lerp(300, 330, u);
             threadOpacity = 0.75;
+          } else if (t >= 4800 && t < 6500) {
+            // Stage 4: ASTA Materializes (Typography logo appears)
+            leftX = 360;
+            leftY = 330;
+            rightX = 640;
+            rightY = 330;
+            threadOpacity = 0.75;
+          } else if (t >= 6500 && t < 8200) {
+            // Stage 5: Weaving The Loom (Threads pull into center woven network)
+            const u = (t - 6500) / 1700;
+            leftX = lerp(360, 500, u);
+            leftY = lerp(330, 300, u);
+            rightX = lerp(640, 500, u);
+            rightY = lerp(300, 300, u);
+            threadOpacity = 0.75;
           } else if (t >= 8200 && t <= 10000) {
+            // Stage 6: Collapsing Into Core
             collapseU = Math.min(1, (t - 8200) / 1500);
             const easeU = Math.pow(collapseU, 3);
-            leftX = lerp(360, 500, easeU);
-            leftY = lerp(330, 300, easeU);
-            rightX = lerp(640, 500, easeU);
-            rightY = lerp(330, 300, easeU);
+            leftX = lerp(500, 500, easeU);
+            leftY = lerp(300, 300, easeU);
+            rightX = lerp(500, 500, easeU);
+            rightY = lerp(300, 300, easeU);
             threadOpacity = Math.max(0, 0.75 - easeU * 1.5);
           }
 
-          // 1. Render Holographic Particle-based Silhouette (Stage 5 & 6)
+          // 1. Render Holographic Particle-based Silhouette (Stage 3 to 6)
           let silOpacity = 0;
-          if (t >= 6500 && t < 8200) {
-            silOpacity = (t - 6500) / 1700;
+          if (t >= 3200 && t < 8200) {
+            silOpacity = Math.min(1, (t - 3200) / 1600);
           } else if (t >= 8200 && t < 9500) {
             // Silhouette fades out a bit later and more gradually during collapse
             silOpacity = Math.max(0, 1 - (t - 8200) / 1300);
@@ -506,8 +514,8 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
                 textPush = (dy < 0 ? -pushAmt : pushAmt) * uPush;
               }
 
-              // B. Attraction to hand nodes (Stage 5, 6.5s - 8.2s)
-              const uAttract = (t >= 6500 && t < 8200) ? Math.min(1, (t - 6500) / 1000) : 0;
+              // B. Attraction to hand nodes (Stage 3 onwards, 3.2s - 8.2s)
+              const uAttract = (t >= 3200 && t < 8200) ? Math.min(1, (t - 3200) / 1000) : 0;
               const currentOffset1 = lerp(thread.yOffset1, 0, uAttract * 0.4);
               const currentOffset2 = lerp(thread.yOffset2, 0, uAttract * 0.85); // pulls the control points towards the hand node
 
