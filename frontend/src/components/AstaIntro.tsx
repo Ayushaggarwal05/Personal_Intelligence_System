@@ -32,6 +32,10 @@ const STAGE_LABELS = [
 const LEFT_HUD = ["MEMORY", "CONTEXT", "CODE", "REASONING"];
 const RIGHT_HUD = ["PROJECTS", "EXPERIENCE", "KNOWLEDGE", "PATTERNS"];
 
+// Playback order: original linear sequence (1 -> 2 -> 3 -> 4 -> 5 -> 6).
+const STAGE_ORDER = [1, 2, 3, 4, 5, 6];
+const STAGE_BOUNDS: Keyframe[] = [[0, S1], [S1, S2], [S2, S3], [S3, S4], [S4, S5], [S5, S6]];
+
 /* ==================================================================
  * MATH HELPERS
  * ================================================================== */
@@ -107,6 +111,7 @@ interface ThreadConfig {
   phase: number;
   revealDelay: number;
   isSpark: boolean;
+  depth: number;
 }
 
 function buildThreads(count: number): ThreadConfig[] {
@@ -131,7 +136,7 @@ function buildThreads(count: number): ThreadConfig[] {
     const revealDelay = Math.random();
 
     let speed: number, strokeWidth: number, opacityMult: number;
-    let strokeColor: string, particleColor: string, pSize: number, pOpacity: number;
+    let strokeColor: string, particleColor: string, pSize: number, pOpacity: number, depth: number;
 
     if (layer === "background") {
       speed = 0.0005 + Math.random() * 0.001;
@@ -141,6 +146,7 @@ function buildThreads(count: number): ThreadConfig[] {
       particleColor = "16,48,38";
       pSize = 0.4 + Math.random() * 0.4;
       pOpacity = 0.12;
+      depth = 0.06 + Math.random() * 0.24; // farthest layer
     } else if (layer === "midground") {
       speed = 0.0016 + Math.random() * 0.0018;
       strokeWidth = 0.5 + Math.random() * 0.35;
@@ -149,6 +155,7 @@ function buildThreads(count: number): ThreadConfig[] {
       particleColor = "40,120,98";
       pSize = 0.8 + Math.random() * 0.4;
       pOpacity = 0.28;
+      depth = 0.32 + Math.random() * 0.3;
     } else if (tier === "bright") {
       speed = 0.0032 + Math.random() * 0.0026;
       strokeWidth = 0.9 + Math.random() * 0.45;
@@ -157,6 +164,7 @@ function buildThreads(count: number): ThreadConfig[] {
       particleColor = "94,214,178";
       pSize = 1.3 + Math.random() * 0.6;
       pOpacity = 0.6;
+      depth = 0.6 + Math.random() * 0.26;
     } else {
       speed = 0.0038 + Math.random() * 0.003;
       strokeWidth = 1.1 + Math.random() * 0.5;
@@ -165,12 +173,13 @@ function buildThreads(count: number): ThreadConfig[] {
       particleColor = "196,250,228";
       pSize = 1.6 + Math.random() * 0.7;
       pOpacity = 0.85;
+      depth = 0.82 + Math.random() * 0.18; // closest to the viewer
     }
 
     threads.push({
       isLeft, layer, tier, yStart, yOffset1, yOffset2, xOffset1, xOffset2, xStartOffset,
       speed, u: Math.random(), opacityMult, strokeWidth, strokeColor, particleColor, pSize, pOpacity,
-      phase, revealDelay, isSpark: tier === "highlight" && Math.random() < 0.35,
+      phase, revealDelay, isSpark: tier === "highlight" && Math.random() < 0.35, depth,
     });
   }
   return threads;
@@ -282,6 +291,7 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
   const sizeRef = useRef({ w: window.innerWidth, h: window.innerHeight });
   const stageRef = useRef(1);
   const skipShownRef = useRef(false);
+  const scanlinePatternRef = useRef<CanvasPattern | null>(null);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -296,6 +306,18 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
       onComplete();
       return;
     }
+
+    // Precompute the scanline texture once as a tileable pattern so the render loop
+    // pays for a single fillRect instead of a per-row loop every frame.
+    const scanTile = document.createElement("canvas");
+    scanTile.width = 1;
+    scanTile.height = 4;
+    const scanCtx = scanTile.getContext("2d");
+    if (scanCtx) {
+      scanCtx.fillStyle = "rgba(20,60,48,0.05)";
+      scanCtx.fillRect(0, 0, 1, 1.4);
+    }
+    scanlinePatternRef.current = ctx.createPattern(scanTile, "repeat");
 
     const handleResize = () => {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -368,6 +390,15 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
         setShowSkip(true);
       }
 
+      // Map real elapsed time onto the swapped playback order: this slot's
+      // own duration is kept, but the content drawn is whichever original
+      // stage STAGE_ORDER assigns to it, replayed across its natural range.
+      const [realStart, realEnd] = STAGE_BOUNDS[stage - 1];
+      const originalStage = STAGE_ORDER[stage - 1];
+      const [natStart, natEnd] = STAGE_BOUNDS[originalStage - 1];
+      const localProgress = realEnd === realStart ? 0 : clamp01((t - realStart) / (realEnd - realStart));
+      const T = natStart + localProgress * (natEnd - natStart);
+
       const { w, h } = sizeRef.current;
       const dpr = dprRef.current;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -377,40 +408,46 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
       ctx.fillStyle = "#030706";
       ctx.fillRect(0, 0, w, h);
 
-      const systemOpacity = sampleKF(KF_SYSTEM_OPACITY, t);
-      const coreOrbitOpacity = sampleKF(KF_CORE_ORBIT, t);
-      const weave = sampleKF(KF_WEAVE, t);
-      const attract = sampleKF(KF_ATTRACT, t);
-      const collapseRaw = sampleKF(KF_COLLAPSE, t);
+      const systemOpacity = sampleKF(KF_SYSTEM_OPACITY, T);
+      const coreOrbitOpacity = sampleKF(KF_CORE_ORBIT, T);
+      const weave = sampleKF(KF_WEAVE, T);
+      const attract = sampleKF(KF_ATTRACT, T);
+      const collapseRaw = sampleKF(KF_COLLAPSE, T);
       const collapseU = Math.pow(collapseRaw, 1.6);
-      const silOpacity = sampleKF(KF_SIL_OPACITY, t);
-      const handEnergy = sampleKF(KF_HAND_ENERGY, t);
-      const hudOpacity = sampleKF(KF_HUD_OPACITY, t);
+      const silOpacity = sampleKF(KF_SIL_OPACITY, T);
+      const handEnergy = sampleKF(KF_HAND_ENERGY, T);
+      const hudOpacity = sampleKF(KF_HUD_OPACITY, T);
 
-      const leftX = sampleKF(KF_LEFT_X, t);
-      const leftY = sampleKF(KF_LEFT_Y, t);
-      const rightX = sampleKF(KF_RIGHT_X, t);
-      const rightY = sampleKF(KF_RIGHT_Y, t);
+      const leftX = sampleKF(KF_LEFT_X, T);
+      const leftY = sampleKF(KF_LEFT_Y, T);
+      const rightX = sampleKF(KF_RIGHT_X, T);
+      const rightY = sampleKF(KF_RIGHT_Y, T);
 
       const cx = 500 * scaleX;
       const cy = 300 * scaleY;
 
-      // Atmospheric green haze — concentrated, corners stay near-black.
+      // Atmospheric green haze — layered radial falloff for a foggy, volumetric feel.
+      // Corners stay near-black since the gradient never reaches the edges.
       if (systemOpacity > 0.01 || silOpacity > 0.01) {
-        const pulse = 0.14 + Math.sin(t / 420) * 0.03;
-        const haze = ctx.createRadialGradient(cx, cy, 0, cx, cy, 460 * scaleX);
-        haze.addColorStop(0, `rgba(16,185,129,${pulse * Math.max(systemOpacity, silOpacity * 0.7)})`);
-        haze.addColorStop(0.5, `rgba(6,90,68,${pulse * 0.5 * Math.max(systemOpacity, silOpacity * 0.7)})`);
+        const pulse = 0.14 + Math.sin(T / 420) * 0.03;
+        const hazeStrength = Math.max(systemOpacity, silOpacity * 0.7);
+        const haze = ctx.createRadialGradient(cx, cy, 0, cx, cy, 560 * scaleX);
+        haze.addColorStop(0, `rgba(24,210,158,${pulse * 1.1 * hazeStrength})`);
+        haze.addColorStop(0.24, `rgba(16,150,115,${pulse * 0.62 * hazeStrength})`);
+        haze.addColorStop(0.55, `rgba(8,90,68,${pulse * 0.3 * hazeStrength})`);
         haze.addColorStop(1, "transparent");
         ctx.fillStyle = haze;
         ctx.beginPath();
-        ctx.arc(cx, cy, 460 * scaleX, 0, Math.PI * 2);
+        ctx.arc(cx, cy, 560 * scaleX, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // Very subtle technological scanline texture.
-      ctx.fillStyle = "rgba(20,60,48,0.012)";
-      for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1.4);
+      // Technological scanline texture — one tiled-pattern fill instead of a
+      // per-row loop, which is far cheaper per frame.
+      if (scanlinePatternRef.current) {
+        ctx.fillStyle = scanlinePatternRef.current;
+        ctx.fillRect(0, 0, w, h);
+      }
 
       // Stage 1: dormant particles orbiting the core.
       if (coreOrbitOpacity > 0.01) {
@@ -433,9 +470,9 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
       // Temporal thread field.
       if (systemOpacity > 0.01) {
         for (const thread of THREADS_CONFIG) {
-          const reveal = t < S1
+          const reveal = T < S1
             ? 0
-            : sampleKF([[S1 + thread.revealDelay * 650, 0], [S1 + thread.revealDelay * 650 + 420, 1]], t);
+            : sampleKF([[S1 + thread.revealDelay * 650, 0], [S1 + thread.revealDelay * 650 + 420, 1]], T);
           if (reveal <= 0.001) continue;
 
           const baseStartX = thread.isLeft ? 0 + thread.xStartOffset : 1000 + thread.xStartOffset;
@@ -444,14 +481,19 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
           const xEnd = (thread.isLeft ? leftX : rightX) * scaleX;
           const yEnd = (thread.isLeft ? leftY : rightY) * scaleY;
 
+          // Depth drives how dynamic a strand's curvature and drift feel: distant
+          // strands stay gentle and hazy, close/hero strands sway more and hold still
+          // relative to the fog behind them — the core parallax + volume cue.
           const dx = Math.abs(xEnd - xStart) / 2;
-          const turbulence = Math.sin(t * 0.0018 + thread.phase) * 34 * weave * (thread.layer === "hero" ? 1 : 0.55);
+          const curveScale = 0.5 + thread.depth * 0.9;
+          const parallax = Math.sin(T * 0.00022 + thread.phase * 0.6) * (1 - thread.depth) * 22;
+          const turbulence = Math.sin(T * 0.0018 + thread.phase) * 34 * weave * curveScale;
 
-          const cp1x = (thread.isLeft ? xStart + dx : xStart - dx) + lerp(thread.xOffset1, 0, collapseU) * scaleX;
-          const cp2x = (thread.isLeft ? xEnd - dx : xEnd + dx) + lerp(thread.xOffset2, 0, collapseU) * scaleX;
+          const cp1x = (thread.isLeft ? xStart + dx : xStart - dx) + lerp(thread.xOffset1 * curveScale, 0, collapseU) * scaleX;
+          const cp2x = (thread.isLeft ? xEnd - dx : xEnd + dx) + lerp(thread.xOffset2 * curveScale, 0, collapseU) * scaleX;
 
-          const cp1yBase = thread.yStart + thread.yOffset1 * (1 - attract * 0.35) + turbulence;
-          const cp2yBase = (thread.isLeft ? leftY : rightY) + thread.yOffset2 * (1 - attract * 0.85) + turbulence * 0.6;
+          const cp1yBase = thread.yStart + thread.yOffset1 * curveScale * (1 - attract * 0.35) + turbulence + parallax;
+          const cp2yBase = (thread.isLeft ? leftY : rightY) + thread.yOffset2 * curveScale * (1 - attract * 0.85) + turbulence * 0.6 + parallax * 0.5;
           const cp1y = lerp(cp1yBase, 300, collapseU) * scaleY;
           const cp2y = lerp(cp2yBase, 300, collapseU) * scaleY;
 
@@ -464,27 +506,35 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
           const baseAlpha = systemOpacity * thread.opacityMult * reveal * (1 - collapseU);
           const finalAlpha = Math.min(1, baseAlpha * (1 + proximity * 0.3));
 
+          // Brightness falls off along the strand (dim at the tips, hot through the
+          // middle) instead of a flat, uniform color — this alone is what separates a
+          // "volumetric loom strand" from a flat neon line. Gradients also cost far
+          // less to render than shadowBlur, so this doubles as the GPU-load reduction.
           if (thread.layer === "hero") {
-            ctx.save();
-            ctx.shadowBlur = 16 * brightnessMult * (1 - collapseU);
-            ctx.shadowColor = `rgba(${thread.strokeColor},0.6)`;
-            ctx.strokeStyle = `rgba(${thread.strokeColor},${finalAlpha * 0.4})`;
-            ctx.lineWidth = thread.strokeWidth * 2.6;
+            const grad = ctx.createLinearGradient(xStart, yStart, xEnd, yEnd);
+            grad.addColorStop(0, `rgba(${thread.strokeColor},${finalAlpha * 0.08})`);
+            grad.addColorStop(0.22, `rgba(${thread.strokeColor},${finalAlpha * 0.55})`);
+            grad.addColorStop(0.6, `rgba(${thread.strokeColor},${finalAlpha})`);
+            grad.addColorStop(1, `rgba(${thread.strokeColor},${finalAlpha * 0.5})`);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = thread.strokeWidth * (0.85 + thread.depth * 0.5);
             ctx.stroke();
-            ctx.shadowBlur = 4 * brightnessMult * (1 - collapseU);
-            ctx.strokeStyle = `rgba(${thread.strokeColor},${finalAlpha})`;
+          } else if (thread.layer === "midground") {
+            const grad = ctx.createLinearGradient(xStart, yStart, xEnd, yEnd);
+            grad.addColorStop(0, `rgba(${thread.strokeColor},${finalAlpha * 0.15})`);
+            grad.addColorStop(0.5, `rgba(${thread.strokeColor},${finalAlpha})`);
+            grad.addColorStop(1, `rgba(${thread.strokeColor},${finalAlpha * 0.35})`);
+            ctx.strokeStyle = grad;
             ctx.lineWidth = thread.strokeWidth;
             ctx.stroke();
-            ctx.restore();
           } else {
-            ctx.shadowBlur = 0;
             ctx.strokeStyle = `rgba(${thread.strokeColor},${finalAlpha})`;
             ctx.lineWidth = thread.strokeWidth;
             ctx.stroke();
           }
 
           // Moving particle along the strand, accelerating during collapse.
-          const acc = t >= S5 ? 1 + Math.pow(collapseU, 3.2) * 20 : 1;
+          const acc = T >= S5 ? 1 + Math.pow(collapseU, 3.2) * 20 : 1;
           const uFactor = attract > 0 ? 1 + Math.pow(thread.u, 2) * attract * 2 : 1;
           thread.u = (thread.u + thread.speed * acc * uFactor * 16) % 1;
           const u = thread.u;
@@ -494,19 +544,25 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
 
           const particleAlpha = Math.min(1, systemOpacity * thread.pOpacity * reveal * brightnessMult * (1 - collapseU * 0.6));
           const useSparkColor = thread.isSpark && thread.tier === "highlight" && (thread.u > 0.55 && thread.u < 0.8);
+          const pRadius = thread.pSize * (0.7 + thread.depth * 0.7) * (1 - collapseU * 0.3) * scaleX;
+
           if (thread.layer === "hero") {
-            ctx.save();
-            ctx.shadowBlur = 6 * brightnessMult * (1 - collapseU);
-            ctx.shadowColor = `rgba(${thread.particleColor},0.7)`;
-            ctx.fillStyle = useSparkColor ? `rgba(255,255,255,${particleAlpha})` : `rgba(${thread.particleColor},${particleAlpha})`;
+            // Soft radial falloff reads as a glowing, volumetric particle core without
+            // the per-primitive blur pass shadowBlur would cost.
+            const glowR = pRadius * 2.6;
+            const color = useSparkColor ? "255,255,255" : thread.particleColor;
+            const glow = ctx.createRadialGradient(px, py, 0, px, py, glowR);
+            glow.addColorStop(0, `rgba(${color},${particleAlpha})`);
+            glow.addColorStop(0.4, `rgba(${color},${particleAlpha * 0.55})`);
+            glow.addColorStop(1, "transparent");
+            ctx.fillStyle = glow;
             ctx.beginPath();
-            ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
+            ctx.arc(px, py, glowR, 0, Math.PI * 2);
             ctx.fill();
-            ctx.restore();
           } else {
             ctx.fillStyle = `rgba(${thread.particleColor},${particleAlpha})`;
             ctx.beginPath();
-            ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
+            ctx.arc(px, py, pRadius, 0, Math.PI * 2);
             ctx.fill();
           }
         }
@@ -561,8 +617,8 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
       }
 
       // Final consolidation flash.
-      if (t >= S6 - 320) {
-        const flashU = clamp01((t - (S6 - 320)) / 320);
+      if (T >= S6 - 320) {
+        const flashU = clamp01((T - (S6 - 320)) / 320);
         const radius = flashU * Math.max(w, h) * 0.9;
         const flashOpacity = 1 - flashU;
         const flash = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
@@ -577,18 +633,26 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
         ctx.fill();
       }
 
+      // Depth vignette — pulls focus toward the central convergence point and
+      // reinforces foreground/background separation. One cheap gradient fill.
+      const vignette = ctx.createRadialGradient(cx, cy, Math.min(w, h) * 0.2, cx, cy, Math.max(w, h) * 0.72);
+      vignette.addColorStop(0, "rgba(0,0,0,0)");
+      vignette.addColorStop(1, "rgba(0,0,0,0.5)");
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, w, h);
+
       // HTML overlay state via CSS variables — no per-frame React renders.
       const root = containerRef.current;
       if (root) {
-        const coreY = sampleKF(KF_CORE_Y, t);
+        const coreY = sampleKF(KF_CORE_Y, T);
         let coreScale = 1;
         let coreOpacity = t < 200 ? t / 200 : 1;
-        if (t >= S6 - 320) {
-          const flashU = clamp01((t - (S6 - 320)) / 320);
+        if (T >= S6 - 320) {
+          const flashU = clamp01((T - (S6 - 320)) / 320);
           coreScale = 1 + Math.sin(flashU * Math.PI) * 0.22;
         }
-        const titleOpacity = sampleKF(KF_TITLE_OPACITY, t);
-        const titleScale = sampleKF(KF_TITLE_SCALE, t);
+        const titleOpacity = sampleKF(KF_TITLE_OPACITY, T);
+        const titleScale = sampleKF(KF_TITLE_SCALE, T);
         const titleBlur = (1 - titleOpacity) * 14;
 
         root.style.setProperty("--core-y", `${coreY}%`);
@@ -615,7 +679,8 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
     };
   }, [onComplete]);
 
-  const activeLabel = STAGE_LABELS[activeStage - 1] ?? STAGE_LABELS[0];
+  const displayStage = STAGE_ORDER[activeStage - 1] ?? activeStage;
+  const activeLabel = STAGE_LABELS[displayStage - 1] ?? STAGE_LABELS[0];
 
   return (
     <div
