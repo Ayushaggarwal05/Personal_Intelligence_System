@@ -38,25 +38,32 @@ const STAGE_LABELS = [
   }
 ];
 
-const NUM_THREADS = 120;
+const NUM_THREADS = 220;
 const THREADS_CONFIG = Array.from({ length: NUM_THREADS }).map((_, idx) => {
   const isLeft = idx < NUM_THREADS / 2;
   
-  // Distribute layers: 50% background, 35% midground, 15% hero
+  // Distribute layers: 60% background (extremely subtle), 30% midground, 10% hero
   let layer: 'background' | 'midground' | 'hero' = 'background';
   const rand = Math.random();
-  if (rand > 0.85) {
+  if (rand > 0.90) {
     layer = 'hero';
-  } else if (rand > 0.5) {
+  } else if (rand > 0.60) {
     layer = 'midground';
   }
 
   // Vertical distribution (spread start Y from 25 to 575)
   const yStart = 25 + Math.random() * 550;
 
-  // Curvature offsets (organic waviness)
-  const yOffset1 = (Math.random() - 0.5) * 220; 
-  const yOffset2 = (Math.random() - 0.5) * 140;
+  // Curvature offsets (organic waviness) - more variation
+  const yOffset1 = (Math.random() - 0.5) * 380; 
+  const yOffset2 = (Math.random() - 0.5) * 220;
+
+  // Horizontal control point offsets (adds S-curves and depth)
+  const xOffset1 = (Math.random() - 0.5) * 180;
+  const xOffset2 = (Math.random() - 0.5) * 120;
+
+  // Staggered horizontal start offsets to avoid flat edge look
+  const xStartOffset = (Math.random() - 0.5) * 150;
 
   // Timing speed variations
   let baseSpeed = 0.003;
@@ -68,26 +75,26 @@ const THREADS_CONFIG = Array.from({ length: NUM_THREADS }).map((_, idx) => {
 
   if (layer === 'background') {
     baseSpeed = 0.0006 + Math.random() * 0.0012;
-    strokeWidth = 0.35 + Math.random() * 0.35;
-    opacityMult = 0.04 + Math.random() * 0.05;
-    color = Math.random() > 0.5 ? "rgba(22, 38, 30, 0.5)" : "rgba(32, 68, 58, 0.4)";
-    pSize = 0.6 + Math.random() * 0.5;
-    pOpacity = 0.15;
+    strokeWidth = 0.2 + Math.random() * 0.35;
+    opacityMult = 0.015 + Math.random() * 0.025; // keep extremely subtle
+    color = Math.random() > 0.5 ? "rgba(16, 44, 34, 0.4)" : "rgba(22, 58, 48, 0.3)";
+    pSize = 0.4 + Math.random() * 0.4;
+    pOpacity = 0.08;
   } else if (layer === 'midground') {
     baseSpeed = 0.002 + Math.random() * 0.002;
-    strokeWidth = 0.7 + Math.random() * 0.4;
-    opacityMult = 0.12 + Math.random() * 0.12;
-    color = "rgba(77, 124, 115, 0.65)"; // Accent Teal
-    pSize = 1.0 + Math.random() * 0.6;
-    pOpacity = 0.4;
+    strokeWidth = 0.5 + Math.random() * 0.4;
+    opacityMult = 0.06 + Math.random() * 0.08; // subtle
+    color = "rgba(77, 124, 115, 0.5)"; // Accent Teal
+    pSize = 0.8 + Math.random() * 0.5;
+    pOpacity = 0.25;
   } else {
     // Hero
     baseSpeed = 0.004 + Math.random() * 0.003;
-    strokeWidth = 1.2 + Math.random() * 0.6;
-    opacityMult = 0.5 + Math.random() * 0.25;
-    color = Math.random() > 0.5 ? "rgba(152, 182, 167, 0.9)" : "rgba(93, 150, 137, 0.9)"; // Mint / Bright Teal
-    pSize = 1.8 + Math.random() * 1.0;
-    pOpacity = 0.85;
+    strokeWidth = 1.0 + Math.random() * 0.5;
+    opacityMult = 0.45 + Math.random() * 0.2;
+    color = Math.random() > 0.5 ? "rgba(0, 180, 140, 0.95)" : "rgba(16, 185, 129, 0.95)"; // Saturated Teal / Emerald
+    pSize = 1.6 + Math.random() * 0.8;
+    pOpacity = 0.8;
   }
 
   return {
@@ -96,6 +103,9 @@ const THREADS_CONFIG = Array.from({ length: NUM_THREADS }).map((_, idx) => {
     yStart,
     yOffset1,
     yOffset2,
+    xOffset1,
+    xOffset2,
+    xStartOffset,
     speed: baseSpeed,
     u: Math.random(),
     opacityMult,
@@ -253,8 +263,8 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
           const scaleX = w / 1000;
           const scaleY = h / 600;
 
-          // Clear canvas
-          ctx.fillStyle = "#0c100e";
+          // Clear canvas to deep dark pitch black
+          ctx.fillStyle = "#050806";
           ctx.fillRect(0, 0, w, h);
 
           // Render subtle background scanlines
@@ -402,9 +412,9 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               const nodeEase = Math.pow(collapseU, 3);
               const radiusMult = 1 - nodeEase;
 
-              // 1. Large Outer Bloom
+              // 1. Large Outer Bloom (emerald/teal)
               const bloomGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 48 * radiusMult * scaleX);
-              bloomGrad.addColorStop(0, `rgba(152, 182, 167, ${0.48 * silOpacity * radiusMult})`);
+              bloomGrad.addColorStop(0, `rgba(16, 185, 129, ${0.48 * silOpacity * radiusMult})`);
               bloomGrad.addColorStop(0.3, `rgba(77, 124, 115, ${0.16 * silOpacity * radiusMult})`);
               bloomGrad.addColorStop(1, "transparent");
               ctx.fillStyle = bloomGrad;
@@ -412,23 +422,23 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               ctx.arc(hx, hy, 48 * radiusMult * scaleX, 0, Math.PI * 2);
               ctx.fill();
 
-              // 2. Soft Inner Glow
+              // 2. Soft Inner Glow (mint/teal instead of white)
               const innerGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 16 * radiusMult * scaleX);
-              innerGrad.addColorStop(0, `rgba(244, 246, 245, ${0.95 * silOpacity * radiusMult})`);
-              innerGrad.addColorStop(0.5, `rgba(152, 182, 167, ${0.75 * silOpacity * radiusMult})`);
+              innerGrad.addColorStop(0, `rgba(147, 250, 217, ${0.95 * silOpacity * radiusMult})`);
+              innerGrad.addColorStop(0.5, `rgba(16, 185, 129, ${0.75 * silOpacity * radiusMult})`);
               innerGrad.addColorStop(1, "transparent");
               ctx.fillStyle = innerGrad;
               ctx.beginPath();
               ctx.arc(hx, hy, 16 * radiusMult * scaleX, 0, Math.PI * 2);
               ctx.fill();
 
-              // 3. Bright White Center
+              // 3. Bright White Center (keep white only for the tiny center point)
               ctx.fillStyle = `rgba(255, 255, 255, ${silOpacity * radiusMult})`;
               ctx.beginPath();
               ctx.arc(hx, hy, 4.0 * radiusMult * scaleX, 0, Math.PI * 2);
               ctx.fill();
 
-              // 4. Orbiting Particles (6 dots circling)
+              // 4. Orbiting Particles (6 dots circling) - mint/teal instead of white
               const orbitCount = 6;
               const orbitSpeed = t * 0.0035;
               for (let i = 0; i < orbitCount; i++) {
@@ -437,7 +447,7 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
                 const ox = hx + Math.cos(angle) * dist;
                 const oy = hy + Math.sin(angle) * dist;
 
-                ctx.fillStyle = `rgba(244, 246, 245, ${0.9 * silOpacity * radiusMult})`;
+                ctx.fillStyle = `rgba(147, 250, 217, ${0.9 * silOpacity * radiusMult})`;
                 ctx.beginPath();
                 ctx.arc(ox, oy, 1.3 * scaleX, 0, Math.PI * 2);
                 ctx.fill();
@@ -455,8 +465,8 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
           if (threadOpacity > 0) {
             ctx.save();
 
-            // Draw soft teal atmospheric haze / bloom in the background
-            const glowOpacity = 0.045 + Math.sin(t / 400) * 0.015;
+            // Draw stronger emerald atmospheric haze / bloom in the background
+            const glowOpacity = 0.16 + Math.sin(t / 400) * 0.04;
             const backGlow = ctx.createRadialGradient(
               500 * scaleX,
               300 * scaleY,
@@ -465,23 +475,25 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               300 * scaleY,
               450 * scaleX
             );
-            backGlow.addColorStop(0, `rgba(77, 124, 115, ${glowOpacity * threadOpacity * (t < 8200 ? 1 : 1 - collapseU)})`);
+            backGlow.addColorStop(0, `rgba(16, 185, 129, ${glowOpacity * threadOpacity * (t < 8200 ? 1 : 1 - collapseU)})`);
+            backGlow.addColorStop(0.5, `rgba(4, 120, 87, ${glowOpacity * 0.5 * threadOpacity * (t < 8200 ? 1 : 1 - collapseU)})`);
             backGlow.addColorStop(1, "transparent");
             ctx.fillStyle = backGlow;
             ctx.beginPath();
             ctx.arc(500 * scaleX, 300 * scaleY, 450 * scaleX, 0, Math.PI * 2);
             ctx.fill();
 
-            // Draw the 120 timeline strands
+            // Draw the timeline strands
             THREADS_CONFIG.forEach((thread) => {
-              const xStart = lerp(thread.isLeft ? 0 : 1000, 500, collapseU) * scaleX;
+              const baseStartX = thread.isLeft ? (0 + thread.xStartOffset) : (1000 + thread.xStartOffset);
+              const xStart = lerp(baseStartX, 500, collapseU) * scaleX;
               const yStart = lerp(thread.yStart, 300, collapseU) * scaleY;
               const xEnd = (thread.isLeft ? leftX : rightX) * scaleX;
               const yEnd = (thread.isLeft ? leftY : rightY) * scaleY;
 
               const dx = Math.abs(xEnd - xStart) / 2;
-              const cp1x = thread.isLeft ? xStart + dx : xStart - dx;
-              const cp2x = thread.isLeft ? xEnd - dx : xEnd + dx;
+              const cp1x = (thread.isLeft ? xStart + dx : xStart - dx) + lerp(thread.xOffset1, 0, collapseU) * scaleX;
+              const cp2x = (thread.isLeft ? xEnd - dx : xEnd + dx) + lerp(thread.xOffset2, 0, collapseU) * scaleX;
 
               // --- ATTRACTION & REPULSION FORMULAS ---
 
@@ -512,20 +524,38 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               // Calculate brightness multiplier near hand nodes (u -> 1)
               const brightnessMult = 1 + Math.pow(thread.u, 2.5) * 0.8 * uAttract;
 
-              // Apply glow settings for hero layer
-              if (thread.layer === "hero") {
-                ctx.shadowBlur = 8 * brightnessMult * (1 - collapseU);
-                ctx.shadowColor = thread.color;
-              } else {
-                ctx.shadowBlur = 0;
-              }
-
               // Make threads slightly brighter as they approach the nodes
               const threadBaseOpacity = threadOpacity * thread.opacityMult;
               const finalThreadOpacity = Math.min(1, threadBaseOpacity * (1 + uAttract * 0.3)) * (1 - collapseU);
-              ctx.strokeStyle = thread.color.replace(/[\d\.]+\)$/, `${finalThreadOpacity})`);
-              ctx.lineWidth = thread.strokeWidth;
-              ctx.stroke();
+
+              // Apply glow settings and stroke for hero/mid/back layers
+              if (thread.layer === "hero") {
+                // Layer 1: Soft green/emerald aura underneath
+                ctx.save();
+                ctx.shadowBlur = 18 * brightnessMult * (1 - collapseU);
+                ctx.shadowColor = "rgba(16, 185, 129, 0.65)";
+                const auraOpacity = finalThreadOpacity * 0.35;
+                ctx.strokeStyle = `rgba(16, 185, 129, ${auraOpacity})`;
+                ctx.lineWidth = thread.strokeWidth * 3;
+                ctx.stroke();
+                ctx.restore();
+
+                // Layer 2: Sharp teal line on top
+                ctx.save();
+                ctx.shadowBlur = 5 * brightnessMult * (1 - collapseU);
+                ctx.shadowColor = "rgba(20, 184, 166, 0.8)";
+                ctx.strokeStyle = thread.color.replace(/[\d\.]+\)$/, `${finalThreadOpacity})`);
+                ctx.lineWidth = thread.strokeWidth;
+                ctx.stroke();
+                ctx.restore();
+              } else {
+                ctx.save();
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = thread.color.replace(/[\d\.]+\)$/, `${finalThreadOpacity})`);
+                ctx.lineWidth = thread.strokeWidth;
+                ctx.stroke();
+                ctx.restore();
+              }
 
               // Draw moving timeline particles
               // Strong non-linear acceleration during Stage 6 collapse (pulling into center)
@@ -548,15 +578,32 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
                 Math.pow(u, 3) * yEnd;
 
               // Draw particle dot with glow that increases near hand nodes, fading out as it converges
-              ctx.shadowBlur = (thread.layer === "hero") ? 4 * brightnessMult * (1 - collapseU) : 0;
-              ctx.fillStyle = thread.layer === "hero"
-                ? `rgba(244, 246, 245, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`
-                : thread.layer === "midground"
-                ? `rgba(152, 182, 167, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`
-                : `rgba(77, 124, 115, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`;
-              ctx.beginPath();
-              ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
-              ctx.fill();
+              if (thread.layer === "hero") {
+                ctx.save();
+                ctx.shadowBlur = 6 * brightnessMult * (1 - collapseU);
+                ctx.shadowColor = "rgba(16, 185, 129, 0.7)";
+                ctx.fillStyle = `rgba(147, 250, 217, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`;
+                ctx.beginPath();
+                ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+              } else if (thread.layer === "midground") {
+                ctx.save();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = `rgba(152, 182, 167, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`;
+                ctx.beginPath();
+                ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+              } else {
+                ctx.save();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = `rgba(77, 124, 115, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`;
+                ctx.beginPath();
+                ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+              }
             });
 
             ctx.shadowBlur = 0; // Reset shadowBlur
@@ -664,7 +711,7 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
       ref={containerRef}
       className="fixed inset-0 z-[9999] flex flex-col items-center justify-between p-8 select-none transition-all duration-500 overflow-hidden"
       style={{
-        background: "#0c100e",
+        background: "#050806",
         color: "var(--txt-primary)",
       }}
     >
