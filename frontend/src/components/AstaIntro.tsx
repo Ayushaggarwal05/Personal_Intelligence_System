@@ -83,9 +83,19 @@ const KF_RIGHT_X: Keyframe[] = [[0, 1030], [S1, 1030], [S2, 622], [S3, 532], [S4
 const KF_RIGHT_Y: Keyframe[] = [[0, 300], [S3, 300], [S4, HAND_R.y], [S5, HAND_R.y], [S6, 300]];
 
 /* ==================================================================
- * TEMPORAL THREAD FIELD (precomputed once at module load)
- * 80% dark emerald/teal, ~15% brighter emerald/cyan, ~5% mint/white
- * high-energy highlights - never a predominantly white field.
+ * TEMPORAL THREAD FIELD — a hierarchical "temporal loom" architecture,
+ * not a bag of independent random lines.
+ *
+ * 18 primary branches per side (fixed Y rows) x 8 child strands each
+ * = 288 structured strands, plus 32 hero/spark strands that read as
+ * the network's most important pathways. All ~320 strands trace back
+ * to a deterministic seed, so the composition is reproducible and
+ * reads as engineered rather than noisy — small per-child jitter adds
+ * organic motion on top of that fixed skeleton.
+ *
+ * Color budget stays ~55% background / ~30% midground / ~15% hero,
+ * and only a sliver of the hero tier ever goes mint/white — the scene
+ * must stay dark emerald/teal at a glance.
  * ================================================================== */
 type ThreadLayer = "background" | "midground" | "hero";
 type ThreadTier = "dark" | "bright" | "highlight";
@@ -112,80 +122,242 @@ interface ThreadConfig {
   revealDelay: number;
   isSpark: boolean;
   depth: number;
+  /** Fixed offset from the hand center this strand targets, so endpoints land
+   *  in a volumetric cluster instead of a single pixel. Fades out on collapse. */
+  clusterOffsetX: number;
+  clusterOffsetY: number;
+  /** Deterministic lateral bias used during Stage 3 to cross the centerline —
+   *  a designed weave, not per-frame chaos. Relaxes away once ASTA takes control. */
+  crossBias: number;
 }
 
-function buildThreads(count: number): ThreadConfig[] {
-  const threads: ThreadConfig[] = [];
-  for (let i = 0; i < count; i++) {
-    const isLeft = i % 2 === 0;
-    const rand = Math.random();
-    let layer: ThreadLayer;
-    let tier: ThreadTier;
-    if (rand < 0.66) { layer = "background"; tier = "dark"; }
-    else if (rand < 0.86) { layer = "midground"; tier = "dark"; }
-    else if (rand < 0.96) { layer = "hero"; tier = "bright"; }
-    else { layer = "hero"; tier = "highlight"; }
+// Deterministic PRNG so the loom's structure is reproducible across reloads —
+// only fine motion (turbulence, drift) stays time-based/animated.
+function mulberry32(seed: number) {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6d2b79f5;
+    let x = Math.imul(t ^ (t >>> 15), t | 1);
+    x ^= x + Math.imul(x ^ (x >>> 7), x | 61);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-    const yStart = 20 + Math.random() * 560;
-    const yOffset1 = (Math.random() - 0.5) * 400;
-    const yOffset2 = (Math.random() - 0.5) * 240;
-    const xOffset1 = (Math.random() - 0.5) * 190;
-    const xOffset2 = (Math.random() - 0.5) * 130;
-    const xStartOffset = (Math.random() - 0.5) * 160;
-    const phase = Math.random() * Math.PI * 2;
-    const revealDelay = Math.random();
+const STRUCTURE_SEED = 0x415354; // "AST" — fixed so the loom is stable across sessions
 
-    let speed: number, strokeWidth: number, opacityMult: number;
-    let strokeColor: string, particleColor: string, pSize: number, pOpacity: number, depth: number;
+interface TemporalBranch {
+  side: "left" | "right";
+  index: number;
+  originY: number;
+  strandCount: number;
+  spread: number;
+  curvature: number;
+  depth: number;
+  phase: number;
+  targetCluster: number;
+  revealDelay: number;
+}
 
-    if (layer === "background") {
-      speed = 0.0005 + Math.random() * 0.001;
-      strokeWidth = 0.2 + Math.random() * 0.3;
-      opacityMult = 0.02 + Math.random() * 0.03;
-      strokeColor = Math.random() > 0.5 ? "10,32,24" : "13,40,32";
-      particleColor = "16,48,38";
-      pSize = 0.4 + Math.random() * 0.4;
-      pOpacity = 0.12;
-      depth = 0.06 + Math.random() * 0.24; // farthest layer
-    } else if (layer === "midground") {
-      speed = 0.0016 + Math.random() * 0.0018;
-      strokeWidth = 0.5 + Math.random() * 0.35;
-      opacityMult = 0.09 + Math.random() * 0.09;
-      strokeColor = Math.random() > 0.5 ? "21,82,64" : "18,94,80";
-      particleColor = "40,120,98";
-      pSize = 0.8 + Math.random() * 0.4;
-      pOpacity = 0.28;
-      depth = 0.32 + Math.random() * 0.3;
-    } else if (tier === "bright") {
-      speed = 0.0032 + Math.random() * 0.0026;
-      strokeWidth = 0.9 + Math.random() * 0.45;
-      opacityMult = 0.38 + Math.random() * 0.2;
-      strokeColor = Math.random() > 0.5 ? "13,148,120" : "8,140,132";
-      particleColor = "94,214,178";
-      pSize = 1.3 + Math.random() * 0.6;
-      pOpacity = 0.6;
-      depth = 0.6 + Math.random() * 0.26;
-    } else {
-      speed = 0.0038 + Math.random() * 0.003;
-      strokeWidth = 1.1 + Math.random() * 0.5;
-      opacityMult = 0.55 + Math.random() * 0.25;
-      strokeColor = "134,239,199";
-      particleColor = "196,250,228";
-      pSize = 1.6 + Math.random() * 0.7;
-      pOpacity = 0.85;
-      depth = 0.82 + Math.random() * 0.18; // closest to the viewer
-    }
+const BRANCH_ORIGIN_Y = [52, 82, 112, 142, 174, 205, 235, 265, 295, 325, 355, 385, 415, 446, 476, 508, 538, 568];
+const STRANDS_PER_BRANCH = 8;
+const HERO_STRAND_COUNT = 32;
 
-    threads.push({
-      isLeft, layer, tier, yStart, yOffset1, yOffset2, xOffset1, xOffset2, xStartOffset,
-      speed, u: Math.random(), opacityMult, strokeWidth, strokeColor, particleColor, pSize, pOpacity,
-      phase, revealDelay, isSpark: tier === "highlight" && Math.random() < 0.35, depth,
+// Small deterministic constellation of points around each hand so incoming
+// strands terminate in a volumetric cluster rather than one exact pixel.
+const CLUSTER_OFFSETS: Array<{ x: number; y: number }> = [
+  { x: 0, y: 0 },
+  { x: 9, y: -6 }, { x: -9, y: -6 }, { x: 9, y: 6 }, { x: -9, y: 6 },
+  { x: 0, y: -12 }, { x: 0, y: 12 }, { x: 15, y: 0 }, { x: -15, y: 0 },
+];
+
+function buildBranches(rand: () => number): TemporalBranch[] {
+  const branches: TemporalBranch[] = [];
+
+  // Left side defines the base architecture.
+  const leftBase = BRANCH_ORIGIN_Y.map((originY) => {
+    const distFromCenter = Math.abs(originY - 300) / 300; // 0 near mid-row, 1 at the edges
+    return {
+      originY,
+      spread: 60 + rand() * 90 + distFromCenter * 40,
+      curvature: 0.5 + rand() * 0.8,
+      depth: 0.15 + rand() * 0.8,
+      phase: rand() * Math.PI * 2,
+      targetCluster: Math.floor(rand() * CLUSTER_OFFSETS.length),
+      revealDelay: distFromCenter * 0.5 + rand() * 0.3, // outer rows emerge first
+    };
+  });
+
+  leftBase.forEach((b, i) => branches.push({ side: "left", index: i, strandCount: STRANDS_PER_BRANCH, ...b }));
+
+  // Right side mirrors the left row-for-row (same Y, engineered symmetry) but
+  // with small deterministic jitter on every other property — organic, not a clone.
+  leftBase.forEach((b, i) => {
+    const jitter = () => 0.85 + rand() * 0.3;
+    branches.push({
+      side: "right",
+      index: i,
+      originY: b.originY,
+      strandCount: STRANDS_PER_BRANCH,
+      spread: b.spread * jitter(),
+      curvature: b.curvature * jitter(),
+      depth: clamp01(b.depth * jitter()),
+      phase: b.phase + (rand() - 0.5) * 0.6,
+      targetCluster: Math.floor(rand() * CLUSTER_OFFSETS.length),
+      revealDelay: clamp01(b.revealDelay * jitter()),
     });
-  }
-  return threads;
+  });
+
+  return branches;
 }
 
-const THREADS_CONFIG = buildThreads(320);
+function tierStyle(layer: ThreadLayer, tier: ThreadTier, rand: () => number) {
+  if (layer === "background") {
+    return {
+      speed: 0.0005 + rand() * 0.001,
+      strokeWidth: 0.2 + rand() * 0.2,
+      opacityMult: 0.02 + rand() * 0.03,
+      strokeColor: rand() > 0.5 ? "10,32,24" : "13,40,32",
+      particleColor: "16,48,38",
+      pSize: 0.4 + rand() * 0.4,
+      pOpacity: 0.12,
+      depth: 0.06 + rand() * 0.24,
+    };
+  }
+  if (layer === "midground") {
+    return {
+      speed: 0.0016 + rand() * 0.0018,
+      strokeWidth: 0.4 + rand() * 0.4,
+      opacityMult: 0.09 + rand() * 0.09,
+      strokeColor: rand() > 0.5 ? "21,82,64" : "18,94,80",
+      particleColor: "40,120,98",
+      pSize: 0.8 + rand() * 0.4,
+      pOpacity: 0.28,
+      depth: 0.32 + rand() * 0.3,
+    };
+  }
+  if (tier === "bright") {
+    return {
+      speed: 0.0032 + rand() * 0.0026,
+      strokeWidth: 0.8 + rand() * 0.6,
+      opacityMult: 0.38 + rand() * 0.2,
+      strokeColor: rand() > 0.5 ? "13,148,120" : "8,140,132",
+      particleColor: "94,214,178",
+      pSize: 1.3 + rand() * 0.6,
+      pOpacity: 0.6,
+      depth: 0.6 + rand() * 0.26,
+    };
+  }
+  return {
+    speed: 0.0038 + rand() * 0.003,
+    strokeWidth: 1.0 + rand() * 0.4,
+    opacityMult: 0.55 + rand() * 0.25,
+    strokeColor: "134,239,199",
+    particleColor: "196,250,228",
+    pSize: 1.6 + rand() * 0.7,
+    pOpacity: 0.85,
+    depth: 0.82 + rand() * 0.18,
+  };
+}
+
+// A child strand inherits its parent branch's row, curvature and reveal
+// timing, then adds small per-child variation — this is what makes strands
+// read as belonging to the same bundle instead of independent lines.
+function buildChildStrand(branch: TemporalBranch, childIndex: number, rand: () => number): ThreadConfig {
+  const isLeft = branch.side === "left";
+  const withinBranchT = branch.strandCount > 1 ? childIndex / (branch.strandCount - 1) : 0.5;
+
+  const tierRoll = rand();
+  let layer: ThreadLayer;
+  let tier: ThreadTier;
+  if (tierRoll < 0.62) { layer = "background"; tier = "dark"; }
+  else if (tierRoll < 0.945) { layer = "midground"; tier = "dark"; }
+  else { layer = "hero"; tier = "bright"; }
+
+  const style = tierStyle(layer, tier, rand);
+  const cluster = CLUSTER_OFFSETS[branch.targetCluster];
+
+  return {
+    isLeft,
+    layer,
+    tier,
+    yStart: branch.originY + (withinBranchT - 0.5) * branch.spread,
+    yOffset1: (rand() - 0.5) * 90 * branch.curvature,
+    yOffset2: (rand() - 0.5) * 55 * branch.curvature,
+    xOffset1: (rand() - 0.5) * 60 * branch.curvature,
+    xOffset2: (rand() - 0.5) * 40 * branch.curvature,
+    xStartOffset: (rand() - 0.5) * 40,
+    speed: style.speed,
+    u: rand(),
+    opacityMult: style.opacityMult,
+    strokeWidth: style.strokeWidth,
+    strokeColor: style.strokeColor,
+    particleColor: style.particleColor,
+    pSize: style.pSize,
+    pOpacity: style.pOpacity,
+    phase: branch.phase + childIndex * 0.41,
+    revealDelay: clamp01(branch.revealDelay + (rand() - 0.5) * 0.1),
+    isSpark: false,
+    depth: style.depth,
+    clusterOffsetX: cluster.x + (rand() - 0.5) * 6,
+    clusterOffsetY: cluster.y + (rand() - 0.5) * 6,
+    crossBias: (childIndex % 2 === 0 ? 1 : -1) * (0.4 + rand() * 0.6) * (branch.index % 3 === 0 ? 1 : 0.5),
+  };
+}
+
+// The network's most important pathways — brighter, thicker, and revealed
+// last (per stage 2's "hero branches appear slightly later"). A minority of
+// these carry the rare mint/white highlight treatment.
+function buildHeroStrand(index: number, rand: () => number): ThreadConfig {
+  const isLeft = index % 2 === 0;
+  const isHighlight = rand() < 0.35;
+  const layer: ThreadLayer = "hero";
+  const tier: ThreadTier = isHighlight ? "highlight" : "bright";
+  const style = tierStyle(layer, tier, rand);
+  const curvature = 0.9 + rand() * 0.6;
+  const cluster = CLUSTER_OFFSETS[Math.floor(rand() * CLUSTER_OFFSETS.length)];
+
+  return {
+    isLeft,
+    layer,
+    tier,
+    yStart: 40 + rand() * 520,
+    yOffset1: (rand() - 0.5) * 130 * curvature,
+    yOffset2: (rand() - 0.5) * 80 * curvature,
+    xOffset1: (rand() - 0.5) * 90,
+    xOffset2: (rand() - 0.5) * 60,
+    xStartOffset: (rand() - 0.5) * 60,
+    speed: style.speed,
+    u: rand(),
+    opacityMult: style.opacityMult,
+    strokeWidth: style.strokeWidth,
+    strokeColor: style.strokeColor,
+    particleColor: style.particleColor,
+    pSize: style.pSize,
+    pOpacity: style.pOpacity,
+    phase: rand() * Math.PI * 2,
+    revealDelay: clamp01(0.68 + rand() * 0.32),
+    isSpark: isHighlight && rand() < 0.35,
+    depth: style.depth,
+    clusterOffsetX: cluster.x + (rand() - 0.5) * 5,
+    clusterOffsetY: cluster.y + (rand() - 0.5) * 5,
+    crossBias: (rand() - 0.5) * 1.6,
+  };
+}
+
+function composeThreadField(): ThreadConfig[] {
+  const rand = mulberry32(STRUCTURE_SEED);
+  const branches = buildBranches(rand);
+
+  const strands: ThreadConfig[] = [];
+  for (const branch of branches) {
+    for (let c = 0; c < branch.strandCount; c++) strands.push(buildChildStrand(branch, c, rand));
+  }
+  for (let i = 0; i < HERO_STRAND_COUNT; i++) strands.push(buildHeroStrand(i, rand));
+
+  return strands;
+}
+
+const THREADS_CONFIG = composeThreadField();
 
 /* Tiny dormant particles orbiting the core in Stage 1, which fade as
  * the thread field takes over — "particles around the core become
@@ -430,7 +602,7 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
       // Corners stay near-black since the gradient never reaches the edges.
       if (systemOpacity > 0.01 || silOpacity > 0.01) {
         const pulse = 0.14 + Math.sin(T / 420) * 0.03;
-        const hazeStrength = Math.max(systemOpacity, silOpacity * 0.7);
+        const hazeStrength = Math.max(systemOpacity, silOpacity * 0.7) * (1 + collapseU * 1.4);
         const haze = ctx.createRadialGradient(cx, cy, 0, cx, cy, 560 * scaleX);
         haze.addColorStop(0, `rgba(24,210,158,${pulse * 1.1 * hazeStrength})`);
         haze.addColorStop(0.24, `rgba(16,150,115,${pulse * 0.62 * hazeStrength})`);
@@ -478,8 +650,12 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
           const baseStartX = thread.isLeft ? 0 + thread.xStartOffset : 1000 + thread.xStartOffset;
           const xStart = lerp(baseStartX, 500, collapseU) * scaleX;
           const yStart = lerp(thread.yStart, 300, collapseU) * scaleY;
-          const xEnd = (thread.isLeft ? leftX : rightX) * scaleX;
-          const yEnd = (thread.isLeft ? leftY : rightY) * scaleY;
+          // Endpoints land in a small cluster around the hand rather than one exact
+          // pixel — this is what makes the energy node read as volumetric. The
+          // cluster collapses to the literal center point as the core consumes it.
+          const clusterFade = 1 - collapseU;
+          const xEnd = ((thread.isLeft ? leftX : rightX) + thread.clusterOffsetX * clusterFade) * scaleX;
+          const yEnd = ((thread.isLeft ? leftY : rightY) + thread.clusterOffsetY * clusterFade) * scaleY;
 
           // Depth drives how dynamic a strand's curvature and drift feel: distant
           // strands stay gentle and hazy, close/hero strands sway more and hold still
@@ -488,9 +664,12 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
           const curveScale = 0.5 + thread.depth * 0.9;
           const parallax = Math.sin(T * 0.00022 + thread.phase * 0.6) * (1 - thread.depth) * 22;
           const turbulence = Math.sin(T * 0.0018 + thread.phase) * 34 * weave * curveScale;
+          // Deterministic cross-centerline bend during Stage 3's weave, which relaxes
+          // out once ASTA's hands take control in Stage 5 — a designed weave, not noise.
+          const crossX = thread.crossBias * weave * 26 * (1 - attract * 0.6) * scaleX;
 
           const cp1x = (thread.isLeft ? xStart + dx : xStart - dx) + lerp(thread.xOffset1 * curveScale, 0, collapseU) * scaleX;
-          const cp2x = (thread.isLeft ? xEnd - dx : xEnd + dx) + lerp(thread.xOffset2 * curveScale, 0, collapseU) * scaleX;
+          const cp2x = (thread.isLeft ? xEnd - dx : xEnd + dx) + lerp(thread.xOffset2 * curveScale, 0, collapseU) * scaleX + crossX;
 
           const cp1yBase = thread.yStart + thread.yOffset1 * curveScale * (1 - attract * 0.35) + turbulence + parallax;
           const cp2yBase = (thread.isLeft ? leftY : rightY) + thread.yOffset2 * curveScale * (1 - attract * 0.85) + turbulence * 0.6 + parallax * 0.5;
@@ -539,8 +718,20 @@ export function AstaIntro({ onComplete }: AstaIntroProps) {
           thread.u = (thread.u + thread.speed * acc * uFactor * 16) % 1;
           const u = thread.u;
           const mu = 1 - u;
-          const px = mu * mu * mu * xStart + 3 * mu * mu * u * cp1x + 3 * mu * u * u * cp2x + u * u * u * xEnd;
-          const py = mu * mu * mu * yStart + 3 * mu * mu * u * cp1y + 3 * mu * u * u * cp2y + u * u * u * yEnd;
+          let px = mu * mu * mu * xStart + 3 * mu * mu * u * cp1x + 3 * mu * u * u * cp2x + u * u * u * xEnd;
+          let py = mu * mu * mu * yStart + 3 * mu * mu * u * cp1y + 3 * mu * u * u * cp2y + u * u * u * yEnd;
+
+          // Subtle inward spiral as the collapse accelerates, rather than a straight
+          // pull to center — reads as gravitational rather than a simple slide.
+          if (collapseU > 0.02) {
+            const ang = collapseU * collapseU * 0.9 * (thread.isLeft ? 1 : -1);
+            const cosA = Math.cos(ang);
+            const sinA = Math.sin(ang);
+            const dxp = px - cx;
+            const dyp = py - cy;
+            px = cx + dxp * cosA - dyp * sinA;
+            py = cy + dxp * sinA + dyp * cosA;
+          }
 
           const particleAlpha = Math.min(1, systemOpacity * thread.pOpacity * reveal * brightnessMult * (1 - collapseU * 0.6));
           const useSparkColor = thread.isSpark && thread.tier === "highlight" && (thread.u > 0.55 && thread.u < 0.8);

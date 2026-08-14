@@ -1,3 +1,4 @@
+// This is gemini version of the Intro
 import React, { useState, useEffect, useRef } from "react";
 import { Terminal, Play } from "lucide-react";
 
@@ -9,53 +10,53 @@ const STAGE_LABELS = [
   {
     header: "SYSTEM AWAKENING",
     subText: "DARKNESS. A SPARK.",
-    footer: "ASTA CORE INITIALIZING"
+    footer: "ASTA CORE INITIALIZING",
   },
   {
     header: "TEMPORAL THREADS EMERGE",
     subText: "CONNECTING TO TEMPORAL LAYERS",
-    footer: "SYSTEM SEEKING TIMELINES"
+    footer: "SYSTEM SEEKING TIMELINES",
   },
   {
     header: "WEAVING THE LOOM",
     subText: "SYNCHRONIZING TIMELINES",
-    footer: "MAPPING SYSTEM CALL TREE"
+    footer: "MAPPING SYSTEM CALL TREE",
   },
   {
     header: "ASTA MATERIALIZES",
     subText: "WEAVING TEMPORAL MEMORY LOOM",
-    footer: "CORE ONLINE"
+    footer: "CORE ONLINE",
   },
   {
     header: "ASTA TAKES CONTROL",
     subText: "GRASPING THE THREADS OF TIME",
-    footer: "DIRECTING ACTIVE CODE PLOTS"
+    footer: "DIRECTING ACTIVE CODE PLOTS",
   },
   {
     header: "COLLAPSING INTO CORE",
     subText: "CONSOLIDATING EVERYTHING",
-    footer: "PREPARING LOCAL DEPLOYMENT"
-  }
+    footer: "PREPARING LOCAL DEPLOYMENT",
+  },
 ];
 
 const NUM_THREADS = 220;
 const THREADS_CONFIG = Array.from({ length: NUM_THREADS }).map((_, idx) => {
   const isLeft = idx < NUM_THREADS / 2;
-  
+
   // Distribute layers: 60% background (extremely subtle), 30% midground, 10% hero
-  let layer: 'background' | 'midground' | 'hero' = 'background';
+  let layer: "background" | "midground" | "hero" = "background";
   const rand = Math.random();
-  if (rand > 0.90) {
-    layer = 'hero';
-  } else if (rand > 0.60) {
-    layer = 'midground';
+  if (rand > 0.9) {
+    layer = "hero";
+  } else if (rand > 0.6) {
+    layer = "midground";
   }
 
   // Vertical distribution (spread start Y from 25 to 575)
   const yStart = 25 + Math.random() * 550;
 
   // Curvature offsets (organic waviness) - more variation
-  const yOffset1 = (Math.random() - 0.5) * 380; 
+  const yOffset1 = (Math.random() - 0.5) * 380;
   const yOffset2 = (Math.random() - 0.5) * 220;
 
   // Horizontal control point offsets (adds S-curves and depth)
@@ -73,14 +74,15 @@ const THREADS_CONFIG = Array.from({ length: NUM_THREADS }).map((_, idx) => {
   let pSize = 1.0;
   let pOpacity = 0.3;
 
-  if (layer === 'background') {
+  if (layer === "background") {
     baseSpeed = 0.0006 + Math.random() * 0.0012;
     strokeWidth = 0.2 + Math.random() * 0.35;
     opacityMult = 0.015 + Math.random() * 0.025; // keep extremely subtle
-    color = Math.random() > 0.5 ? "rgba(16, 44, 34, 0.4)" : "rgba(22, 58, 48, 0.3)";
+    color =
+      Math.random() > 0.5 ? "rgba(16, 44, 34, 0.4)" : "rgba(22, 58, 48, 0.3)";
     pSize = 0.4 + Math.random() * 0.4;
     pOpacity = 0.08;
-  } else if (layer === 'midground') {
+  } else if (layer === "midground") {
     baseSpeed = 0.002 + Math.random() * 0.002;
     strokeWidth = 0.5 + Math.random() * 0.4;
     opacityMult = 0.06 + Math.random() * 0.08; // subtle
@@ -92,7 +94,10 @@ const THREADS_CONFIG = Array.from({ length: NUM_THREADS }).map((_, idx) => {
     baseSpeed = 0.004 + Math.random() * 0.003;
     strokeWidth = 1.0 + Math.random() * 0.5;
     opacityMult = 0.45 + Math.random() * 0.2;
-    color = Math.random() > 0.5 ? "rgba(0, 180, 140, 0.95)" : "rgba(16, 185, 129, 0.95)"; // Saturated Teal / Emerald
+    color =
+      Math.random() > 0.5
+        ? "rgba(0, 180, 140, 0.95)"
+        : "rgba(16, 185, 129, 0.95)"; // Saturated Teal / Emerald
     pSize = 1.6 + Math.random() * 0.8;
     pOpacity = 0.8;
   }
@@ -112,11 +117,13 @@ const THREADS_CONFIG = Array.from({ length: NUM_THREADS }).map((_, idx) => {
     strokeWidth,
     color,
     pSize,
-    pOpacity
+    pOpacity,
   };
 });
 
-export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComplete }) => {
+export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({
+  onComplete,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeStage, setActiveStage] = useState(1);
@@ -125,11 +132,24 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
   const startTimeRef = useRef<number | null>(null);
 
   // Digital silhouette floating particles forming ASTA outline
-  const silParticles = useRef<Array<{ targetX: number; targetY: number; x: number; y: number; r: number; angle: number; speed: number; opacity: number }>>([]);
+  const silParticles = useRef<
+    Array<{
+      targetX: number;
+      targetY: number;
+      x: number;
+      y: number;
+      r: number;
+      angle: number;
+      speed: number;
+      opacity: number;
+    }>
+  >([]);
 
   useEffect(() => {
     // Check accessibility reduced motion preference
-    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
     if (prefersReducedMotion) {
       onComplete();
       return;
@@ -137,7 +157,16 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
 
     // Initialize silhouette particles outlining the entity shape
     if (silParticles.current.length === 0) {
-      const particles: Array<{ targetX: number; targetY: number; x: number; y: number; r: number; angle: number; speed: number; opacity: number }> = [];
+      const particles: Array<{
+        targetX: number;
+        targetY: number;
+        x: number;
+        y: number;
+        r: number;
+        angle: number;
+        speed: number;
+        opacity: number;
+      }> = [];
 
       // 1. Head ellipse
       const headCx = 500;
@@ -156,12 +185,18 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
           r: 0.6 + Math.random() * 0.8,
           angle: Math.random() * Math.PI * 2,
           speed: 0.015 + Math.random() * 0.02,
-          opacity: 0.35 + Math.random() * 0.5
+          opacity: 0.35 + Math.random() * 0.5,
         });
       }
 
       // Helper to add lines
-      const addLineParticles = (x1: number, y1: number, x2: number, y2: number, count: number) => {
+      const addLineParticles = (
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+        count: number,
+      ) => {
         for (let i = 0; i < count; i++) {
           const ratio = i / count;
           const tx = x1 + (x2 - x1) * ratio;
@@ -174,13 +209,21 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
             r: 0.6 + Math.random() * 0.8,
             angle: Math.random() * Math.PI * 2,
             speed: 0.015 + Math.random() * 0.02,
-            opacity: 0.35 + Math.random() * 0.5
+            opacity: 0.35 + Math.random() * 0.5,
           });
         }
       };
 
       // Helper to add curves
-      const addCurveParticles = (x1: number, y1: number, cx: number, cy: number, x2: number, y2: number, count: number) => {
+      const addCurveParticles = (
+        x1: number,
+        y1: number,
+        cx: number,
+        cy: number,
+        x2: number,
+        y2: number,
+        count: number,
+      ) => {
         for (let i = 0; i < count; i++) {
           const t = i / count;
           const tx = (1 - t) * (1 - t) * x1 + 2 * (1 - t) * t * cx + t * t * x2;
@@ -193,7 +236,7 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
             r: 0.6 + Math.random() * 0.8,
             angle: Math.random() * Math.PI * 2,
             speed: 0.015 + Math.random() * 0.02,
-            opacity: 0.35 + Math.random() * 0.5
+            opacity: 0.35 + Math.random() * 0.5,
           });
         }
       };
@@ -227,7 +270,8 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
     window.addEventListener("resize", handleResize);
     handleResize();
 
-    const lerp = (start: number, end: number, amt: number) => start + (end - start) * amt;
+    const lerp = (start: number, end: number, amt: number) =>
+      start + (end - start) * amt;
 
     const animate = (timestamp: number) => {
       if (startTimeRef.current === null) {
@@ -335,12 +379,24 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               30 * (1 - backdropEase) * scaleY,
               0,
               0,
-              Math.PI * 2
+              Math.PI * 2,
             );
-            ctx.moveTo(lerp(440, 500, backdropEase) * scaleX, lerp(250, 300, backdropEase) * scaleY);
-            ctx.lineTo(lerp(468, 500, backdropEase) * scaleX, lerp(360, 300, backdropEase) * scaleY);
-            ctx.lineTo(lerp(532, 500, backdropEase) * scaleX, lerp(360, 300, backdropEase) * scaleY);
-            ctx.lineTo(lerp(560, 500, backdropEase) * scaleX, lerp(250, 300, backdropEase) * scaleY);
+            ctx.moveTo(
+              lerp(440, 500, backdropEase) * scaleX,
+              lerp(250, 300, backdropEase) * scaleY,
+            );
+            ctx.lineTo(
+              lerp(468, 500, backdropEase) * scaleX,
+              lerp(360, 300, backdropEase) * scaleY,
+            );
+            ctx.lineTo(
+              lerp(532, 500, backdropEase) * scaleX,
+              lerp(360, 300, backdropEase) * scaleY,
+            );
+            ctx.lineTo(
+              lerp(560, 500, backdropEase) * scaleX,
+              lerp(250, 300, backdropEase) * scaleY,
+            );
             ctx.closePath();
             ctx.fillStyle = `rgba(12, 16, 14, ${0.85 * silOpacity * (1 - backdropEase)})`;
             ctx.fill();
@@ -355,13 +411,13 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               30 * (1 - backdropEase) * scaleY,
               0,
               0,
-              Math.PI * 2
+              Math.PI * 2,
             );
             ctx.rect(
               lerp(440, 500, backdropEase) * scaleX,
               lerp(210, 300, backdropEase) * scaleY,
               120 * (1 - backdropEase) * scaleX,
-              150 * (1 - backdropEase) * scaleY
+              150 * (1 - backdropEase) * scaleY,
             );
             ctx.clip();
             ctx.beginPath();
@@ -413,9 +469,22 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               const radiusMult = 1 - nodeEase;
 
               // 1. Large Outer Bloom (emerald/teal)
-              const bloomGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 48 * radiusMult * scaleX);
-              bloomGrad.addColorStop(0, `rgba(16, 185, 129, ${0.48 * silOpacity * radiusMult})`);
-              bloomGrad.addColorStop(0.3, `rgba(77, 124, 115, ${0.16 * silOpacity * radiusMult})`);
+              const bloomGrad = ctx.createRadialGradient(
+                hx,
+                hy,
+                0,
+                hx,
+                hy,
+                48 * radiusMult * scaleX,
+              );
+              bloomGrad.addColorStop(
+                0,
+                `rgba(16, 185, 129, ${0.48 * silOpacity * radiusMult})`,
+              );
+              bloomGrad.addColorStop(
+                0.3,
+                `rgba(77, 124, 115, ${0.16 * silOpacity * radiusMult})`,
+              );
               bloomGrad.addColorStop(1, "transparent");
               ctx.fillStyle = bloomGrad;
               ctx.beginPath();
@@ -423,9 +492,22 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               ctx.fill();
 
               // 2. Soft Inner Glow (mint/teal instead of white)
-              const innerGrad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 16 * radiusMult * scaleX);
-              innerGrad.addColorStop(0, `rgba(147, 250, 217, ${0.95 * silOpacity * radiusMult})`);
-              innerGrad.addColorStop(0.5, `rgba(16, 185, 129, ${0.75 * silOpacity * radiusMult})`);
+              const innerGrad = ctx.createRadialGradient(
+                hx,
+                hy,
+                0,
+                hx,
+                hy,
+                16 * radiusMult * scaleX,
+              );
+              innerGrad.addColorStop(
+                0,
+                `rgba(147, 250, 217, ${0.95 * silOpacity * radiusMult})`,
+              );
+              innerGrad.addColorStop(
+                0.5,
+                `rgba(16, 185, 129, ${0.75 * silOpacity * radiusMult})`,
+              );
               innerGrad.addColorStop(1, "transparent");
               ctx.fillStyle = innerGrad;
               ctx.beginPath();
@@ -443,7 +525,8 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               const orbitSpeed = t * 0.0035;
               for (let i = 0; i < orbitCount; i++) {
                 const angle = orbitSpeed + (i * Math.PI * 2) / orbitCount;
-                const dist = (12 + Math.sin(t * 0.006 + i) * 3) * radiusMult * scaleX;
+                const dist =
+                  (12 + Math.sin(t * 0.006 + i) * 3) * radiusMult * scaleX;
                 const ox = hx + Math.cos(angle) * dist;
                 const oy = hy + Math.sin(angle) * dist;
 
@@ -473,10 +556,16 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               0,
               500 * scaleX,
               300 * scaleY,
-              450 * scaleX
+              450 * scaleX,
             );
-            backGlow.addColorStop(0, `rgba(16, 185, 129, ${glowOpacity * threadOpacity * (t < 8200 ? 1 : 1 - collapseU)})`);
-            backGlow.addColorStop(0.5, `rgba(4, 120, 87, ${glowOpacity * 0.5 * threadOpacity * (t < 8200 ? 1 : 1 - collapseU)})`);
+            backGlow.addColorStop(
+              0,
+              `rgba(16, 185, 129, ${glowOpacity * threadOpacity * (t < 8200 ? 1 : 1 - collapseU)})`,
+            );
+            backGlow.addColorStop(
+              0.5,
+              `rgba(4, 120, 87, ${glowOpacity * 0.5 * threadOpacity * (t < 8200 ? 1 : 1 - collapseU)})`,
+            );
             backGlow.addColorStop(1, "transparent");
             ctx.fillStyle = backGlow;
             ctx.beginPath();
@@ -485,15 +574,21 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
 
             // Draw the timeline strands
             THREADS_CONFIG.forEach((thread) => {
-              const baseStartX = thread.isLeft ? (0 + thread.xStartOffset) : (1000 + thread.xStartOffset);
+              const baseStartX = thread.isLeft
+                ? 0 + thread.xStartOffset
+                : 1000 + thread.xStartOffset;
               const xStart = lerp(baseStartX, 500, collapseU) * scaleX;
               const yStart = lerp(thread.yStart, 300, collapseU) * scaleY;
               const xEnd = (thread.isLeft ? leftX : rightX) * scaleX;
               const yEnd = (thread.isLeft ? leftY : rightY) * scaleY;
 
               const dx = Math.abs(xEnd - xStart) / 2;
-              const cp1x = (thread.isLeft ? xStart + dx : xStart - dx) + lerp(thread.xOffset1, 0, collapseU) * scaleX;
-              const cp2x = (thread.isLeft ? xEnd - dx : xEnd + dx) + lerp(thread.xOffset2, 0, collapseU) * scaleX;
+              const cp1x =
+                (thread.isLeft ? xStart + dx : xStart - dx) +
+                lerp(thread.xOffset1, 0, collapseU) * scaleX;
+              const cp2x =
+                (thread.isLeft ? xEnd - dx : xEnd + dx) +
+                lerp(thread.xOffset2, 0, collapseU) * scaleX;
 
               // --- ATTRACTION & REPULSION FORMULAS ---
 
@@ -507,13 +602,19 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               }
 
               // B. Attraction to hand nodes (Stage 5, 6.5s - 8.2s)
-              const uAttract = (t >= 6500 && t < 8200) ? Math.min(1, (t - 6500) / 1000) : 0;
+              const uAttract =
+                t >= 6500 && t < 8200 ? Math.min(1, (t - 6500) / 1000) : 0;
               const currentOffset1 = lerp(thread.yOffset1, 0, uAttract * 0.4);
               const currentOffset2 = lerp(thread.yOffset2, 0, uAttract * 0.85); // pulls the control points towards the hand node
 
               // Apply organic waviness + attraction + repulsion to control points
               // In Stage 6 collapse, control points pull completely to center 300
-              const cp1y = lerp(thread.yStart + currentOffset1 + textPush, 300, collapseU) * scaleY;
+              const cp1y =
+                lerp(
+                  thread.yStart + currentOffset1 + textPush,
+                  300,
+                  collapseU,
+                ) * scaleY;
               const cp2y = lerp(yEnd + currentOffset2, 300, collapseU) * scaleY;
 
               // Draw base thread curve
@@ -522,11 +623,14 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, xEnd, yEnd);
 
               // Calculate brightness multiplier near hand nodes (u -> 1)
-              const brightnessMult = 1 + Math.pow(thread.u, 2.5) * 0.8 * uAttract;
+              const brightnessMult =
+                1 + Math.pow(thread.u, 2.5) * 0.8 * uAttract;
 
               // Make threads slightly brighter as they approach the nodes
               const threadBaseOpacity = threadOpacity * thread.opacityMult;
-              const finalThreadOpacity = Math.min(1, threadBaseOpacity * (1 + uAttract * 0.3)) * (1 - collapseU);
+              const finalThreadOpacity =
+                Math.min(1, threadBaseOpacity * (1 + uAttract * 0.3)) *
+                (1 - collapseU);
 
               // Apply glow settings and stroke for hero/mid/back layers
               if (thread.layer === "hero") {
@@ -544,14 +648,20 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
                 ctx.save();
                 ctx.shadowBlur = 5 * brightnessMult * (1 - collapseU);
                 ctx.shadowColor = "rgba(20, 184, 166, 0.8)";
-                ctx.strokeStyle = thread.color.replace(/[\d\.]+\)$/, `${finalThreadOpacity})`);
+                ctx.strokeStyle = thread.color.replace(
+                  /[\d\.]+\)$/,
+                  `${finalThreadOpacity})`,
+                );
                 ctx.lineWidth = thread.strokeWidth;
                 ctx.stroke();
                 ctx.restore();
               } else {
                 ctx.save();
                 ctx.shadowBlur = 0;
-                ctx.strokeStyle = thread.color.replace(/[\d\.]+\)$/, `${finalThreadOpacity})`);
+                ctx.strokeStyle = thread.color.replace(
+                  /[\d\.]+\)$/,
+                  `${finalThreadOpacity})`,
+                );
                 ctx.lineWidth = thread.strokeWidth;
                 ctx.stroke();
                 ctx.restore();
@@ -561,7 +671,8 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               // Strong non-linear acceleration during Stage 6 collapse (pulling into center)
               const acc = t >= 8200 ? 1 + Math.pow(collapseU, 3.5) * 22 : 1;
               // In Stage 5, particles accelerate as they get closer to the hand nodes (u -> 1)
-              const uFactor = (t >= 6500 && t < 8200) ? 1 + Math.pow(thread.u, 2) * 2.0 : 1;
+              const uFactor =
+                t >= 6500 && t < 8200 ? 1 + Math.pow(thread.u, 2) * 2.0 : 1;
               thread.u = (thread.u + thread.speed * acc * uFactor) % 1;
 
               // Calculate current cubic Bezier coordinate
@@ -584,7 +695,13 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
                 ctx.shadowColor = "rgba(16, 185, 129, 0.7)";
                 ctx.fillStyle = `rgba(147, 250, 217, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`;
                 ctx.beginPath();
-                ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
+                ctx.arc(
+                  px,
+                  py,
+                  thread.pSize * (1 - collapseU * 0.3) * scaleX,
+                  0,
+                  Math.PI * 2,
+                );
                 ctx.fill();
                 ctx.restore();
               } else if (thread.layer === "midground") {
@@ -592,7 +709,13 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = `rgba(152, 182, 167, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`;
                 ctx.beginPath();
-                ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
+                ctx.arc(
+                  px,
+                  py,
+                  thread.pSize * (1 - collapseU * 0.3) * scaleX,
+                  0,
+                  Math.PI * 2,
+                );
                 ctx.fill();
                 ctx.restore();
               } else {
@@ -600,7 +723,13 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
                 ctx.shadowBlur = 0;
                 ctx.fillStyle = `rgba(77, 124, 115, ${Math.min(1, threadOpacity * thread.pOpacity * brightnessMult * (1 - collapseU * 0.55))})`;
                 ctx.beginPath();
-                ctx.arc(px, py, thread.pSize * (1 - collapseU * 0.3) * scaleX, 0, Math.PI * 2);
+                ctx.arc(
+                  px,
+                  py,
+                  thread.pSize * (1 - collapseU * 0.3) * scaleX,
+                  0,
+                  Math.PI * 2,
+                );
                 ctx.fill();
                 ctx.restore();
               }
@@ -623,12 +752,21 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
               0,
               500 * scaleX,
               300 * scaleY,
-              radius
+              radius,
             );
             radialGlow.addColorStop(0, `rgba(255, 255, 255, ${flashOpacity})`); // Pure white-hot center shine
-            radialGlow.addColorStop(0.12, `rgba(230, 250, 240, ${flashOpacity * 0.95})`); // Light green/white shine
-            radialGlow.addColorStop(0.35, `rgba(152, 182, 167, ${flashOpacity * 0.8})`); // Glowing mint green
-            radialGlow.addColorStop(0.65, `rgba(77, 124, 115, ${flashOpacity * 0.35})`); // Dark teal bloom
+            radialGlow.addColorStop(
+              0.12,
+              `rgba(230, 250, 240, ${flashOpacity * 0.95})`,
+            ); // Light green/white shine
+            radialGlow.addColorStop(
+              0.35,
+              `rgba(152, 182, 167, ${flashOpacity * 0.8})`,
+            ); // Glowing mint green
+            radialGlow.addColorStop(
+              0.65,
+              `rgba(77, 124, 115, ${flashOpacity * 0.35})`,
+            ); // Dark teal bloom
             radialGlow.addColorStop(1, "transparent");
 
             ctx.fillStyle = radialGlow;
@@ -719,7 +857,10 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full z-0" />
 
       {/* Top Header Bar */}
-      <div className="w-[80vw] flex items-center justify-between text-[10px] md:text-xs font-mono border-b border-white/5 pb-4 z-10" style={{ color: "var(--txt-muted)" }}>
+      <div
+        className="w-[80vw] flex items-center justify-between text-[10px] md:text-xs font-mono border-b border-white/5 pb-4 z-10"
+        style={{ color: "var(--txt-muted)" }}
+      >
         <div className="flex items-center gap-2">
           <Terminal size={14} style={{ color: "var(--accent)" }} />
           <span>ASTA_INCEPTION_STREAM_LOG</span>
@@ -778,7 +919,8 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
           style={{
             transform: "translate(-50%, -10%) scale(var(--title-scale, 0.85))",
             opacity: "var(--title-opacity, 0)",
-            filter: "drop-shadow(0 0 20px rgba(152, 182, 167, 0.58)) blur(var(--title-blur, 12px))",
+            filter:
+              "drop-shadow(0 0 20px rgba(152, 182, 167, 0.58)) blur(var(--title-blur, 12px))",
           }}
         >
           <h1 className="font-heading font-black tracking-[0.38em] text-4xl md:text-6xl flex items-center justify-center gap-1 select-none">
@@ -797,11 +939,16 @@ export const AstaCinematicIntro: React.FC<AstaCinematicIntroProps> = ({ onComple
 
       {/* Bottom Status Labels & Skip Controls */}
       <div className="w-[80vw] flex items-center justify-between border-t border-white/5 pt-4 font-mono z-10 text-[10px] md:text-xs">
-        <div className="flex flex-col gap-1" style={{ color: "var(--txt-muted)" }}>
+        <div
+          className="flex flex-col gap-1"
+          style={{ color: "var(--txt-muted)" }}
+        >
           <span className="text-[var(--accent)] uppercase font-semibold">
             STATUS: {activeLabel.footer}
           </span>
-          <span className="text-[8px] opacity-50">TEMPORAL TIMELINE MATRIX SYNCHRONIZED</span>
+          <span className="text-[8px] opacity-50">
+            TEMPORAL TIMELINE MATRIX SYNCHRONIZED
+          </span>
         </div>
 
         {showSkip && (
