@@ -83,6 +83,7 @@ class ModelRouter:
                 time.sleep(1.0)
                 if self.check_local_ollama_health():
                     logger.info(f"[ModelRouter] Local Ollama service woke up and connected successfully in {i+1} seconds!")
+                    self._warmup_ollama_model()
                     return True
             
             logger.warning("[ModelRouter] Ollama launched but failed to connect within 15 seconds.")
@@ -91,6 +92,24 @@ class ModelRouter:
         
         return False
 
+    def _warmup_ollama_model(self):
+        """Sends a lightweight warmup ping to initialize Ollama compute buffers after cold boot."""
+        try:
+            url = f"{settings.OLLAMA_HOST}/api/generate"
+            headers = {"Content-Type": "application/json"}
+            payload = {
+                "model": settings.OLLAMA_MODEL,
+                "prompt": "hi",
+                "stream": False,
+                "keep_alive": "10m",
+                "options": {"num_ctx": 8192}
+            }
+            logger.info("[ModelRouter] Executing cold-boot warmup ping to allocate model compute buffers...")
+            make_post_request(url, headers, payload)
+            logger.info("[ModelRouter] Cold-boot model warmup completed successfully.")
+        except Exception as e:
+            logger.warning(f"[ModelRouter] Warmup ping non-fatal note: {e}")
+
     def generate(self, prompt: str, system_prompt: Optional[str] = None, json_format: bool = False, provider: Optional[str] = None) -> str:
         """Executes prompt inference routing between local and cloud providers with auto-fallback policies."""
         if not provider:
@@ -98,19 +117,11 @@ class ModelRouter:
         else:
             provider = provider.lower()
         
-        # Auto fallback check if provider is set to local but Ollama is offline
+        # Auto-wake local Ollama if offline
         if provider == "local" and not self.check_local_ollama_health():
-            # Try to auto-start it first!
             if not self.auto_start_local_ollama():
-                logger.warning("[ModelRouter] Local Ollama service is offline. Evaluating cloud providers fallback...")
-            if settings.GEMINI_API_KEY:
-                logger.info("[ModelRouter] Falling back to Gemini Cloud provider.")
-                provider = "gemini"
-            elif settings.GROQ_API_KEY:
-                logger.info("[ModelRouter] Falling back to Groq Cloud provider.")
-                provider = "groq"
-            else:
-                logger.error("[ModelRouter] All providers offline. Routing raw Ollama request...")
+                logger.warning("[ModelRouter] Local Ollama service is offline and auto-start failed.")
+                raise LLMProviderException("Ollama Offline", "Local Ollama service is offline. Please launch Ollama to continue.")
 
         # 1. LOCAL OLLAMA ROUTING
         if provider == "local":
@@ -130,12 +141,19 @@ class ModelRouter:
             if json_format:
                 payload["format"] = "json"
 
+            # Attempt 1
             try:
                 raw_res = make_post_request(url, headers, payload)
                 return json.loads(raw_res)["response"]
             except Exception as e:
-                logger.warning(f"[ModelRouter] Ollama inference failed: {e}. Yielding mock fallback response.")
-                return self._get_fallback_mock_response(prompt, json_format)
+                logger.warning(f"[ModelRouter] Initial Ollama inference attempt failed: {e}. Retrying after 2s memory stabilization...")
+                time.sleep(2.0)
+                try:
+                    raw_res = make_post_request(url, headers, payload)
+                    return json.loads(raw_res)["response"]
+                except Exception as retry_err:
+                    logger.error(f"[ModelRouter] Ollama inference retry failed: {retry_err}.")
+                    return self._get_fallback_mock_response(prompt, json_format)
 
         # 2. GEMINI CLOUD ROUTING
         elif provider == "gemini":
@@ -172,7 +190,7 @@ class ModelRouter:
             messages.append({"role": "user", "content": prompt})
             
             payload = {
-                "model": "llama3-8b-8192",
+                "model": "llama-3.1-8b-instant",
                 "messages": messages,
                 "temperature": 0.2
             }

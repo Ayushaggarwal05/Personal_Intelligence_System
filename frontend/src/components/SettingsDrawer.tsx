@@ -88,8 +88,15 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
     <div className="w-full h-full flex items-center justify-center p-6 select-none animate-fade-in">
       <div className="p-6 rounded-2xl border border-white/5 bg-bgCard backdrop-blur-md flex flex-col gap-5 max-w-sm w-full shadow-xl hover:border-white/10 transition-all">
         {/* API Key Configuration Form */}
-        <form onSubmit={handleSaveKeys} className="flex flex-col gap-4">
+        <form onSubmit={handleSaveKeys} className="flex flex-col gap-3.5">
           <div>
+            <span className="text-[10px] text-txtSecond font-heading font-semibold block">
+              Diagram Generator AI Key
+            </span>
+            <span className="text-[9px] text-txtMuted font-mono block mb-2">
+              Only 1 key is required for Mermaid diagram generation
+            </span>
+
             <label className="text-[9px] text-txtMuted block mb-1.5 font-mono uppercase tracking-wider">
               GOOGLE GEMINI API KEY
             </label>
@@ -107,6 +114,15 @@ export const SettingsDrawer: React.FC<SettingsDrawerProps> = ({ projectId }) => 
                 </span>
               )}
             </div>
+          </div>
+
+          {/* Visual OR Divider */}
+          <div className="flex items-center gap-2 my-0.5 select-none">
+            <div className="h-[1px] flex-1 bg-white/10" />
+            <span className="text-[8.5px] font-mono font-bold uppercase tracking-widest text-txtMuted px-2.5 py-0.5 bg-black/40 border border-white/10 rounded-full">
+              OR
+            </span>
+            <div className="h-[1px] flex-1 bg-white/10" />
           </div>
 
           <div>

@@ -11,6 +11,13 @@ class KeyConfigRequest(BaseModel):
     gemini_key: Optional[str] = None
     groq_key: Optional[str] = None
 
+DUMMY_KEYS = {"aizasytestkey", "gsk_testkey", "mock_key", "your_key_here", "test_key", ""}
+
+def is_valid_key(key: Optional[str]) -> bool:
+    if not key or not isinstance(key, str):
+        return False
+    return key.strip().lower() not in DUMMY_KEYS
+
 @router.get("")
 def get_application_settings():
     """Returns application environment settings configurations."""
@@ -26,8 +33,8 @@ def get_application_settings():
         "ollama_model": settings.OLLAMA_MODEL,
         "embeddings_model_name": settings.EMBEDDINGS_MODEL_NAME,
         "log_level": settings.LOG_LEVEL,
-        "has_gemini_key": bool(settings.GEMINI_API_KEY),
-        "has_groq_key": bool(settings.GROQ_API_KEY),
+        "has_gemini_key": is_valid_key(settings.GEMINI_API_KEY),
+        "has_groq_key": is_valid_key(settings.GROQ_API_KEY),
         "workspace_config": {
             "allowed_extensions": list(workspace_config.allowed_extensions),
             "max_file_size_bytes": workspace_config.max_file_size_bytes,
@@ -77,6 +84,6 @@ def update_application_keys(payload: KeyConfigRequest):
     return {
         "success": True,
         "message": "API keys successfully updated and written to local configuration.",
-        "has_gemini_key": bool(settings.GEMINI_API_KEY),
-        "has_groq_key": bool(settings.GROQ_API_KEY)
+        "has_gemini_key": is_valid_key(settings.GEMINI_API_KEY),
+        "has_groq_key": is_valid_key(settings.GROQ_API_KEY)
     }

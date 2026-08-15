@@ -257,7 +257,7 @@ export default function App() {
         {/* Active Content */}
         <section className="flex-1 overflow-hidden relative">
           {activeTab === "explain" && <ChatWindow projectId={projectId} />}
-          {activeTab === "diagrams" && <DiagramViewer projectId={projectId} />}
+          {activeTab === "diagrams" && <DiagramViewer projectId={projectId} onOpenSettings={() => setActiveTab("settings")} />}
           {activeTab === "settings" && <SettingsDrawer projectId={projectId} />}
 
           {isScanning && (
