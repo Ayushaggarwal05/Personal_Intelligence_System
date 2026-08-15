@@ -6,7 +6,7 @@ from app.database.models.file import File
 from app.database.models.symbol import Symbol
 from app.tools.filesystem.file_hash import calculate_file_hash
 from app.tools.parsers.python_parser import parse_python_file
-from app.tools.parsers.javascript_parser import parse_javascript_file
+from app.tools.parsers.javascript_parser import parse_javascript_file, parse_javascript_files_batch
 from app.core.logging import logger
 
 def estimate_tokens(file_path: str) -> int:
@@ -20,13 +20,15 @@ def estimate_tokens(file_path: str) -> int:
     except Exception:
         return 0
 
-def extract_and_store_symbols(db: Session, file_id: str, abs_path: str):
+def extract_and_store_symbols(db: Session, file_id: str, abs_path: str, preparsed_symbols: dict = None):
     """Parses symbols from a file and inserts them into the symbols database."""
     _, ext = os.path.splitext(abs_path)
     ext = ext.lower()
     
     symbols_data = []
-    if ext == ".py":
+    if preparsed_symbols and abs_path in preparsed_symbols:
+        symbols_data = preparsed_symbols[abs_path]
+    elif ext == ".py":
         symbols_data = parse_python_file(abs_path)
     elif ext in {".js", ".ts", ".jsx", ".tsx"}:
         symbols_data = parse_javascript_file(abs_path)
@@ -56,13 +58,28 @@ def run_incremental_index(db: Session, project_path: str) -> dict:
     modified_files = scan_results["modified"]
     deleted_files = scan_results["deleted"]
 
-    # 1. Process Deleted Files
+    # 1. Pre-fetch batch AST parsing for all new & modified JS/TS files in a single pass
+    js_extensions = {".js", ".ts", ".jsx", ".tsx"}
+    jsts_paths = []
+    for f in new_files:
+        if os.path.splitext(f["absolute_path"])[1].lower() in js_extensions:
+            jsts_paths.append(f["absolute_path"])
+    for f in modified_files:
+        if os.path.splitext(f["absolute_path"])[1].lower() in js_extensions:
+            jsts_paths.append(f["absolute_path"])
+
+    preparsed_js_symbols = {}
+    if jsts_paths:
+        logger.info(f"Batch parsing {len(jsts_paths)} JS/TS files in a single Node AST pass...")
+        preparsed_js_symbols = parse_javascript_files_batch(jsts_paths)
+
+    # 2. Process Deleted Files
     for db_file in deleted_files:
         logger.info(f"Removing deleted file record: {db_file.relative_path}")
         db.delete(db_file)
     db.commit()
 
-    # 2. Process New Files
+    # 3. Process New Files
     for new_file in new_files:
         abs_path = new_file["absolute_path"]
         rel_path = new_file["relative_path"]
@@ -84,14 +101,14 @@ def run_incremental_index(db: Session, project_path: str) -> dict:
             db.add(file_record)
             
             # Extract and store symbols
-            extract_and_store_symbols(db, file_id, abs_path)
+            extract_and_store_symbols(db, file_id, abs_path, preparsed_js_symbols)
             logger.info(f"Indexed new file: {rel_path} ({tokens} est. tokens)")
         except Exception as e:
             logger.error(f"Failed to index new file {rel_path}: {e}")
             
     db.commit()
 
-    # 3. Process Modified Files
+    # 4. Process Modified Files
     for mod_file in modified_files:
         rel_path = mod_file["relative_path"]
         last_mod = mod_file["last_modified"]
@@ -110,7 +127,7 @@ def run_incremental_index(db: Session, project_path: str) -> dict:
             db.query(Symbol).filter(Symbol.file_id == db_file.id).delete()
             
             # Extract and store updated symbols
-            extract_and_store_symbols(db, db_file.id, abs_path)
+            extract_and_store_symbols(db, db_file.id, abs_path, preparsed_js_symbols)
             logger.info(f"Updated modified file: {rel_path} ({tokens} est. tokens)")
         except Exception as e:
             logger.error(f"Failed to update modified file {rel_path}: {e}")
@@ -124,3 +141,4 @@ def run_incremental_index(db: Session, project_path: str) -> dict:
         "modified_count": len(modified_files),
         "deleted_count": len(deleted_files)
     }
+

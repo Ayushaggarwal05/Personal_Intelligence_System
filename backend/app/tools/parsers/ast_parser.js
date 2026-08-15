@@ -1,20 +1,50 @@
 const fs = require('fs');
 const path = require('path');
 
-const filePath = process.argv[2];
-if (!filePath) {
+const args = process.argv.slice(2);
+if (args.length === 0) {
     console.error("Error: No file path provided.");
     process.exit(1);
 }
 
-try {
-    const code = fs.readFileSync(filePath, 'utf-8');
-    const symbols = parseCode(code, filePath);
-    console.log(JSON.stringify(symbols, null, 2));
-} catch (err) {
-    console.error("Parser failed: " + err.message);
-    process.exit(1);
+let filePaths = [];
+let isBatchMode = args.length > 1;
+
+if (args[0].startsWith('--payload-file=')) {
+    const payloadPath = args[0].substring('--payload-file='.length);
+    try {
+        const payloadContent = fs.readFileSync(payloadPath, 'utf-8');
+        filePaths = JSON.parse(payloadContent);
+        isBatchMode = true;
+    } catch (e) {
+        console.error("Error reading payload file: " + e.message);
+        process.exit(1);
+    }
+} else {
+    filePaths = args;
 }
+
+const results = {};
+
+for (const filePath of filePaths) {
+    try {
+        if (fs.existsSync(filePath)) {
+            const code = fs.readFileSync(filePath, 'utf-8');
+            results[filePath] = parseCode(code, filePath);
+        } else {
+            results[filePath] = [];
+        }
+    } catch (err) {
+        results[filePath] = [];
+    }
+}
+
+if (!isBatchMode && filePaths.length === 1) {
+    console.log(JSON.stringify(results[filePaths[0]] || [], null, 2));
+} else {
+    console.log(JSON.stringify(results, null, 2));
+}
+
 
 function findModule(moduleName, startPath) {
     let current = path.dirname(startPath);
