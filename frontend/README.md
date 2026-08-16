@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
 [![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.4+-blue?style=flat-square&logo=tailwindcss)](https://tailwindcss.com/)
 
-The premium React client interface for **ASTA (Personal Engineering Intelligence System)**. It features a calm, modern, and dark-themed engineering mentor workspace with glassmorphism, responsive canvas diagrams, and real-time streaming chat boxes.
+The premium React client interface for **PEIS (Personal Engineering Intelligence System)**. It features a calm, modern, dark-themed engineering mentor workspace with glassmorphism, responsive architectural diagram canvas, and real-time streaming chat boxes.
 
 ---
 
@@ -28,11 +28,11 @@ frontend/
 ├── src/
 │   ├── components/
 │   │   ├── ChatWindow.tsx        # Stream explainer interface & follow-up suggestions
-│   │   ├── DiagramViewer.tsx     # Mermaid.js architecture vector canvas
+│   │   ├── DiagramViewer.tsx     # Responsive Mermaid.js vector canvas & alert cards
 │   │   ├── SearchPanel.tsx       # Local keyword/symbol metadata explorer
 │   │   ├── WorkspaceManager.tsx  # Workspace project directory registrar
 │   │   ├── WorkspaceStats.tsx    # Workspace file counters & token profiler cards
-│   │   └── SettingsDrawer.tsx    # LLM keys and configurations panel
+│   │   └── SettingsDrawer.tsx    # Scoped LLM keys panel with "── OR ──" divider
 │   │
 │   ├── App.tsx                   # Core layout controller and tab navigations
 │   ├── index.css                 # Premium styling variables, animations & scrollbars
@@ -46,12 +46,19 @@ frontend/
 
 ---
 
-## ⚡ Key Frontend Features & Micro-Animations
-*   **Floating Chat Capsule**: A floating glassmorphic input panel at the bottom of the chat viewport with real-time streaming typewriter rendering.
-*   **Streaming Loader Pulse**: Shows a loading indicator (`Formulating suggested follow-ups...`) only *after* the core explanation finishes and during the Interview Agent's query generation phase.
-*   **Suggested Questions Fallback**: A trailing list parser automatically extracts numbered questions (e.g. `1. Why... \n 2. How...`) from response text and converts them into interactive buttons.
-*   **Symbol Tabs Segment Control**: Upgrades generic lists into elegant pill-like navigation chips (All, Files, Classes, Functions, Routes) inside the search panel.
-*   **Mermaid Render Canvas**: Fits vector diagrams cleanly inside borders with soft opacity levels.
+## ⚡ Key Frontend Features & Responsive Viewports
+*   **Architectural Diagram Canvas (`DiagramViewer.tsx`)**:
+    - **Tab 1: Controller Sequence**: Traces the overall end-to-end request flow (Frontend UI ➔ Controller/Router ➔ Service ➔ SQLite Storage).
+    - **Tab 2: Database Schema ER**: Displays a detailed Entity-Relationship schema containing all data models and field attributes.
+    - **Tab 3: Backend Routes Flow**: Displays a complete flowchart map of all backend API endpoints and handler functions.
+    - **Responsive Viewport SVG Scaling**: Automatically scales sequence diagrams and flowcharts to fill 100% of the canvas with clear, legible text.
+    - **Alert Card Navigation**: Displays clear UI alert cards if an API key is missing or rate limited, with a direct button leading to Settings.
+*   **Settings Drawer (`SettingsDrawer.tsx`)**:
+    - Features a visual `── OR ─` divider between Gemini and Groq API key inputs to clearly show that only one key is required.
+    - Filters out dummy placeholder keys (`AIzaSyTestKey`/`gsk_TestKey`) automatically.
+*   **Floating Chat Capsule (`ChatWindow.tsx`)**:
+    - Real-time SSE typewriter streaming with auto-scroll.
+    - Interactive suggested follow-up study question buttons.
 
 ---
 
@@ -85,4 +92,4 @@ To build and optimize the React files for production:
 ```bash
 npm run build
 ```
-The optimized bundle will be compiled into the `dist/` folder, ready for deployment.
+The optimized bundle will be compiled into the `dist/` folder.
