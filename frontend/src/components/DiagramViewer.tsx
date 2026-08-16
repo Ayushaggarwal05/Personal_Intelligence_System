@@ -6,6 +6,9 @@ mermaid.initialize({
   startOnLoad: false,
   theme: 'dark',
   securityLevel: 'loose',
+  flowchart: { useMaxWidth: true, htmlLabels: true },
+  sequence: { useMaxWidth: true, showSequenceNumbers: true },
+  er: { useMaxWidth: true },
   themeVariables: {
     background: '#121216',
     primaryColor: '#a855f7',
@@ -59,7 +62,7 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
   useEffect(() => {
     if (!mermaidCode || !containerRef.current || errorState) return;
 
-    containerRef.current.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
+    containerRef.current.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center">${mermaidCode}</div>`;
     try {
       mermaid.run({
         nodes: containerRef.current.querySelectorAll('.mermaid')
@@ -71,12 +74,21 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
 
   return (
     <div className="flex-1 flex flex-col h-full p-6 overflow-y-auto bg-transparent animate-fade-in">
+      <style>{`
+        .mermaid-viewport svg {
+          max-width: 100% !important;
+          width: 100% !important;
+          height: auto !important;
+          min-height: 400px !important;
+          max-height: 75vh !important;
+        }
+      `}</style>
       {/* Selectors */}
       <div className="flex gap-2 mb-5 overflow-x-auto pb-1 select-none">
         {[
           { key: 'sequence', label: 'Controller Sequence', icon: <Activity size={14} /> },
           { key: 'er', label: 'Database Schema ER', icon: <Layers size={14} /> },
-          { key: 'api-flow', label: 'FastAPI Routes Flow', icon: <GitFork size={14} /> },
+          { key: 'api-flow', label: 'Backend Routes Flow', icon: <GitFork size={14} /> },
         ].map((btn) => (
           <button
             key={btn.key}
@@ -96,7 +108,7 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
       </div>
 
       {/* Rendering Viewport */}
-      <div className="flex-1 flex items-center justify-center min-h-[300px] bg-bgCard p-5 overflow-auto border border-white/5 rounded-2xl shadow-xl">
+      <div className="flex-1 flex items-center justify-center min-h-[350px] bg-bgCard p-5 overflow-auto border border-white/5 rounded-2xl shadow-xl">
         {!projectId ? (
           <span className="text-txtMuted text-xs font-mono">Register a workspace path to render flow diagrams</span>
         ) : isLoading ? (
@@ -144,7 +156,7 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
             )}
           </div>
         ) : (
-          <div ref={containerRef} className="w-full h-full flex justify-center" />
+          <div ref={containerRef} className="w-full h-full flex items-center justify-center overflow-auto text-center mermaid-viewport" />
         )}
       </div>
     </div>
