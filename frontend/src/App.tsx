@@ -5,7 +5,7 @@ import { ChatWindow } from "./components/ChatWindow";
 import { DiagramViewer } from "./components/DiagramViewer";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { WorkspaceStats } from "./components/WorkspaceStats";
-import { Layers, Settings, MessageSquare, Folder } from "lucide-react";
+import { Layers, Settings, MessageSquare, Folder, ChevronLeft, ChevronRight } from "lucide-react";
 import { ActivationScreen } from "./components/ActivationScreen";
 
 const TABS = [
@@ -26,6 +26,7 @@ export default function App() {
   const [stats, setStats] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>("explain");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [showActivation, setShowActivation] = useState(() => {
     return localStorage.getItem("asta_skip_activation") !== "true";
   });
@@ -40,62 +41,92 @@ export default function App() {
       )}
       {/* ── Sidebar ───────────────────────────────────────────── */}
       <aside
-        className="flex flex-col h-screen overflow-hidden flex-shrink-0 sidebar-bg"
+        className="flex flex-col h-screen overflow-hidden flex-shrink-0 sidebar-bg transition-all duration-300 ease-in-out relative z-30"
         style={{
-          width: 250,
+          width: isSidebarCollapsed ? 64 : 250,
           borderRight: "1px solid var(--border)",
         }}
       >
-        {/* Logo Lockup */}
-        <div className="flex items-center gap-3 px-6 pt-7 pb-3 select-none">
-          {/* Console badge */}
-          <div
-            className="flex-shrink-0 rounded-xl flex items-center justify-center"
-            style={{
-              width: 36,
-              height: 36,
-              background:
-                "linear-gradient(135deg, var(--accent) 0%, var(--sage) 100%)",
-              boxShadow: "0 6px 18px rgba(77,124,115,.12)",
-            }}
-          >
-            <span
-              className="font-mono font-black leading-none select-none"
-              style={{
-                fontSize: 12.5,
-                color: "var(--bg-card)",
-              }}
-            >
-              &gt;_&lt;
-            </span>
-          </div>
-
-          <div className="min-w-0">
+        {/* Logo Lockup & Collapse Toggle */}
+        <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-2 py-4' : 'justify-between px-5 pt-6 pb-3'} select-none`}>
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Console badge */}
             <div
-              className="font-heading font-bold tracking-tight leading-none"
+              className="flex-shrink-0 rounded-xl flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               style={{
-                fontSize: 16.5,
-                color: "var(--txt-primary)",
+                width: 36,
+                height: 36,
+                background:
+                  "linear-gradient(135deg, var(--accent) 0%, var(--sage) 100%)",
+                boxShadow: "0 6px 18px rgba(77,124,115,.12)",
               }}
+              title={isSidebarCollapsed ? "Expand Sidebar" : "ASTA Engineering Intelligence"}
             >
-              ASTA
+              <span
+                className="font-mono font-black leading-none select-none"
+                style={{
+                  fontSize: 12.5,
+                  color: "var(--bg-card)",
+                }}
+              >
+                &gt;_&lt;
+              </span>
             </div>
 
-            <div
-              className="font-mono uppercase mt-1"
-              style={{
-                fontSize: 8.5,
-                letterSpacing: "0.18em",
-                color: "var(--txt-muted)",
-              }}
-            >
-              PERSONAL ENG INTEL
-            </div>
+            {!isSidebarCollapsed && (
+              <div className="min-w-0">
+                <div
+                  className="font-heading font-bold tracking-tight leading-none"
+                  style={{
+                    fontSize: 16.5,
+                    color: "var(--txt-primary)",
+                  }}
+                >
+                  ASTA
+                </div>
+
+                <div
+                  className="font-mono uppercase mt-1"
+                  style={{
+                    fontSize: 8.5,
+                    letterSpacing: "0.18em",
+                    color: "var(--txt-muted)",
+                  }}
+                >
+                  PERSONAL ENG INTEL
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Collapse Button */}
+          {!isSidebarCollapsed && (
+            <button
+              onClick={() => setIsSidebarCollapsed(true)}
+              className="p-1.5 rounded-lg text-txtMuted hover:text-txtPrimary hover:bg-white/5 transition-all cursor-pointer border border-transparent hover:border-white/10"
+              title="Collapse Sidebar"
+            >
+              <ChevronLeft size={16} />
+            </button>
+          )}
         </div>
 
+        {/* Collapsed Expand Quick Button */}
+        {isSidebarCollapsed && (
+          <div className="flex justify-center pb-2">
+            <button
+              onClick={() => setIsSidebarCollapsed(false)}
+              className="p-1.5 rounded-lg text-txtMuted hover:text-txtPrimary hover:bg-white/5 transition-all cursor-pointer border border-white/5"
+              title="Expand Sidebar"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        )}
+
         {/* Sidebar Body */}
-        <div className="flex flex-col gap-10 flex-1 px-5 pt-4 pb-8 overflow-y-auto min-h-0">
+        <div className={`flex flex-col gap-6 flex-1 ${isSidebarCollapsed ? 'px-2 py-4' : 'px-4 pt-3 pb-6'} overflow-y-auto min-h-0 scrollbar-thin`}>
           <WorkspaceManager
             projectId={projectId}
             setProjectId={setProjectId}
@@ -105,39 +136,50 @@ export default function App() {
             setStats={setStats}
             isScanning={isScanning}
             setIsScanning={setIsScanning}
+            isCollapsed={isSidebarCollapsed}
           />
-          <WorkspaceStats projectId={projectId} stats={stats} />
-          <SearchPanel projectId={projectId} />
+          <WorkspaceStats projectId={projectId} stats={stats} isCollapsed={isSidebarCollapsed} />
+          <SearchPanel projectId={projectId} isCollapsed={isSidebarCollapsed} />
         </div>
 
         {/* Sidebar Footer */}
-        <div className="px-6 py-4 flex items-center justify-between border-t border-[var(--border)] mt-auto bg-[rgba(0,0,0,0.1)]">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 relative">
+        <div className={`${isSidebarCollapsed ? 'px-2 py-3 justify-center' : 'px-4 py-3 justify-between'} flex items-center border-t border-[var(--border)] mt-auto bg-[rgba(0,0,0,0.15)] select-none`}>
+          <div className="flex items-center gap-2" title="Local Model Connected: Qwen 2.5 3B (8K Context)">
+            <span className="flex h-2 w-2 relative flex-shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--success)]"></span>
             </span>
-            <span
-              className="font-mono uppercase select-none text-txtPrimary"
-              style={{
-                fontSize: 9,
-                letterSpacing: "0.08em",
-                color: "var(--txt-muted)",
-              }}
-            >
-              Local Model Connected
-            </span>
+            {!isSidebarCollapsed && (
+              <div className="flex flex-col">
+                <span
+                  className="font-mono uppercase text-txtPrimary font-semibold"
+                  style={{
+                    fontSize: 8.5,
+                    letterSpacing: "0.06em",
+                    color: "var(--txt-primary)",
+                  }}
+                >
+                  Local Model Connected
+                </span>
+                <span
+                  className="font-mono"
+                  style={{
+                    fontSize: 8,
+                    color: "var(--txt-muted)",
+                  }}
+                >
+                  Qwen 2.5 3B · 8K Context
+                </span>
+              </div>
+            )}
           </div>
-          <span
-            className="font-mono uppercase select-none"
-            style={{
-              fontSize: 9,
-              letterSpacing: "0.05em",
-              color: "var(--txt-disabled)",
-            }}
-          >
-            ASTA v1.0
-          </span>
+          {!isSidebarCollapsed && (
+            <span
+              className="font-mono uppercase text-[9px] text-[var(--txt-disabled)]"
+            >
+              v1.0
+            </span>
+          )}
         </div>
       </aside>
 

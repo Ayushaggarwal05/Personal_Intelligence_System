@@ -1,33 +1,55 @@
-import React, { useState, useEffect } from 'react';
-import { Search, BookOpen, Tag, FileText } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { Search, BookOpen, Tag, FileText } from "lucide-react";
 
 interface SearchPanelProps {
   projectId: string | null;
+  isCollapsed?: boolean;
 }
 
 const FILTERS = [
-  { key: null,       label: 'All'     },
-  { key: 'file',     label: 'Files'   },
-  { key: 'class',    label: 'Classes' },
-  { key: 'function', label: 'Funcs'   },
-  { key: 'route',    label: 'Routes'  },
+  { key: null, label: "All" },
+  { key: "file", label: "Files" },
+  { key: "class", label: "Classes" },
+  { key: "function", label: "Funcs" },
+  { key: "route", label: "Routes" },
 ] as const;
 
-export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
-  const [query,      setQuery]      = useState('');
+export const SearchPanel: React.FC<SearchPanelProps> = ({
+  projectId,
+  isCollapsed,
+}) => {
+  const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [results,    setResults]    = useState<any[]>([]);
+  const [results, setResults] = useState<any[]>([]);
   const [filterType, setFilterType] = useState<string | null>(null);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  // Global Ctrl + K / Cmd + K keyboard shortcut to focus Search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   useEffect(() => {
-    if (!projectId || !query) { setSuggestions([]); return; }
+    if (!projectId || !query) {
+      setSuggestions([]);
+      return;
+    }
     const t = setTimeout(async () => {
       try {
         const res = await fetch(
-          `http://localhost:8000/api/search/suggestions?project_id=${projectId}&prefix=${encodeURIComponent(query)}`
+          `http://localhost:8000/api/search/suggestions?project_id=${projectId}&prefix=${encodeURIComponent(query)}`,
         );
         if (res.ok) setSuggestions((await res.json()).suggestions || []);
-      } catch { /* noop */ }
+      } catch {
+        /* noop */
+      }
     }, 200);
     return () => clearTimeout(t);
   }, [query, projectId]);
@@ -41,7 +63,9 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
       if (filterType) url += `&type=${filterType}`;
       const res = await fetch(url);
       if (res.ok) setResults((await res.json()).results || []);
-    } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
   };
 
   useEffect(() => {
@@ -50,20 +74,46 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
     }
   }, [projectId, filterType]);
 
+  if (isCollapsed) {
+    return (
+      <div
+        className="flex items-center justify-center p-2 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all"
+        title="Code Finder (Ctrl + K)"
+      >
+        <Search size={16} className="text-[var(--accent)]" />
+      </div>
+    );
+  }
+
   return (
     <div className="asta-sidebar-card flex flex-col gap-4">
       {/* Header */}
       <div className="flex flex-col gap-2 flex-shrink-0">
-        <div className="flex items-center gap-2 text-txtPrimary">
-          <BookOpen size={16} style={{ color: 'var(--accent-hover)' }} />
-          <span
-            className="font-heading font-semibold"
-            style={{ fontSize: 13, color: 'var(--txt-primary)', letterSpacing: '0.01em' }}
-          >
-            Code Finder
+        <div className="flex items-center justify-between text-txtPrimary">
+          <div className="flex items-center gap-2">
+            <BookOpen size={16} style={{ color: "var(--accent-hover)" }} />
+            <span
+              className="font-heading font-semibold"
+              style={{
+                fontSize: 13,
+                color: "var(--txt-primary)",
+                letterSpacing: "0.01em",
+              }}
+            >
+              Code Finder
+            </span>
+          </div>
+          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/40 border border-white/10 text-txtMuted">
+            Ctrl K
           </span>
         </div>
-        <span style={{ fontSize: 11.5, color: 'var(--txt-muted)', lineHeight: '1.4' }}>
+        <span
+          style={{
+            fontSize: 11.5,
+            color: "var(--txt-muted)",
+            lineHeight: "1.4",
+          }}
+        >
           Search files, classes, functions and routes instantly.
         </span>
       </div>
@@ -74,19 +124,30 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
           size={14}
           onClick={() => handleSearch(query)}
           className="absolute left-4 cursor-pointer transition-colors"
-          style={{ top: '50%', transform: 'translateY(-50%)', color: 'var(--txt-disabled)', zIndex: 10 }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--sage)')}
-          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--txt-disabled)')}
+          style={{
+            top: "50%",
+            transform: "translateY(-50%)",
+            color: "var(--txt-disabled)",
+            zIndex: 10,
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--sage)")}
+          onMouseLeave={(e) =>
+            (e.currentTarget.style.color = "var(--txt-disabled)")
+          }
         />
         <input
+          ref={inputRef}
           type="text"
-          placeholder="Search symbols or files..."
+          placeholder="Search symbols & files..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && handleSearch(query)}
-          className="asta-input-premium"
+          onKeyDown={(e) => e.key === "Enter" && handleSearch(query)}
+          className="asta-input-premium pr-12"
           style={{ paddingLeft: 42 }}
         />
+        {/* <span className="absolute right-3 top-1/2 -translate-y-1/2 px-1.5 py-0.5 text-[9px] font-mono text-txtMuted bg-black/40 border border-white/10 rounded pointer-events-none select-none">
+          Ctrl K
+        </span> */}
 
         {/* Autocomplete */}
         {suggestions.length > 0 && (
@@ -94,10 +155,10 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
             className="absolute left-0 right-0 z-20 overflow-y-auto"
             style={{
               top: 54,
-              background: 'var(--bg-card)',
-              border: '1px solid var(--border)',
+              background: "var(--bg-card)",
+              border: "1px solid var(--border)",
               borderRadius: 16,
-              boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+              boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
               maxHeight: 160,
             }}
           >
@@ -107,12 +168,19 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
                 onClick={() => handleSearch(s)}
                 className="px-4 py-2.5 cursor-pointer transition-colors text-xs"
                 style={{
-                  color: 'var(--txt-second)',
-                  fontFamily: 'JetBrains Mono, monospace',
-                  borderBottom: i < suggestions.length - 1 ? '1px solid var(--border)' : 'none',
+                  color: "var(--txt-second)",
+                  fontFamily: "JetBrains Mono, monospace",
+                  borderBottom:
+                    i < suggestions.length - 1
+                      ? "1px solid var(--border)"
+                      : "none",
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-hover)')}
-                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "var(--bg-hover)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "transparent")
+                }
               >
                 {s}
               </div>
@@ -129,7 +197,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
             <button
               key={String(f.key)}
               onClick={() => setFilterType(f.key as string | null)}
-              className={active ? 'asta-chip-active' : 'asta-chip-inactive'}
+              className={active ? "asta-chip-active" : "asta-chip-inactive"}
             >
               {f.label}
             </button>
@@ -138,21 +206,27 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
       </div>
 
       {/* Results */}
-      <div className="overflow-y-auto flex flex-col gap-2.5 scrollbar-thin" style={{ maxHeight: '350px' }}>
+      <div
+        className="overflow-y-auto flex flex-col gap-2.5 scrollbar-thin"
+        style={{ maxHeight: "350px" }}
+      >
         {results.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-8 px-2 select-none">
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3.5"
               style={{
-                background: 'rgba(255, 255, 255, 0.02)',
-                border: '1px solid var(--border)',
+                background: "rgba(255, 255, 255, 0.02)",
+                border: "1px solid var(--border)",
               }}
             >
-              <Search size={20} className="text-[var(--txt-disabled)] opacity-80" />
+              <Search
+                size={20}
+                className="text-[var(--txt-disabled)] opacity-80"
+              />
             </div>
             <h3
               className="font-heading font-semibold mb-1"
-              style={{ fontSize: 13, color: 'var(--txt-second)' }}
+              style={{ fontSize: 13, color: "var(--txt-second)" }}
             >
               Search your codebase
             </h3>
@@ -169,33 +243,42 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
               key={i}
               className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 transition-all cursor-pointer"
               style={{
-                background: 'rgba(0, 0, 0, 0.1)',
-                border: '1px solid var(--border)',
-                transition: 'all 220ms ease',
+                background: "rgba(0, 0, 0, 0.1)",
+                border: "1px solid var(--border)",
+                transition: "all 220ms ease",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-hover)';
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)';
+                e.currentTarget.style.background = "var(--bg-hover)";
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'rgba(0,0,0,0.1)';
-                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.background = "rgba(0,0,0,0.1)";
+                e.currentTarget.style.borderColor = "var(--border)";
               }}
             >
-              {res.type === 'file'
-                ? <FileText size={14} style={{ color: 'var(--accent-hover)', marginTop: 2 }} />
-                : <Tag      size={14} style={{ color: 'var(--sage)', marginTop: 2 }} />
-              }
+              {res.type === "file" ? (
+                <FileText
+                  size={14}
+                  style={{ color: "var(--accent-hover)", marginTop: 2 }}
+                />
+              ) : (
+                <Tag size={14} style={{ color: "var(--sage)", marginTop: 2 }} />
+              )}
               <div className="flex-1 min-w-0">
                 <span
                   className="block truncate font-heading font-medium"
-                  style={{ fontSize: 11, color: 'var(--txt-primary)' }}
+                  style={{ fontSize: 11, color: "var(--txt-primary)" }}
                 >
                   {res.title}
                 </span>
                 <span
                   className="block uppercase"
-                  style={{ fontSize: 9, color: 'var(--txt-disabled)', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.05em' }}
+                  style={{
+                    fontSize: 9,
+                    color: "var(--txt-disabled)",
+                    fontFamily: "JetBrains Mono, monospace",
+                    letterSpacing: "0.05em",
+                  }}
                 >
                   {res.type} · {res.source}
                 </span>
@@ -204,11 +287,11 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ projectId }) => {
                     className="mt-1.5 overflow-x-auto rounded"
                     style={{
                       fontSize: 9,
-                      background: 'var(--bg-app)',
-                      border: '1px solid var(--border)',
-                      padding: '6px 8px',
-                      color: 'var(--txt-muted)',
-                      fontFamily: 'JetBrains Mono, monospace',
+                      background: "var(--bg-app)",
+                      border: "1px solid var(--border)",
+                      padding: "6px 8px",
+                      color: "var(--txt-muted)",
+                      fontFamily: "JetBrains Mono, monospace",
                       lineHeight: 1.5,
                     }}
                   >

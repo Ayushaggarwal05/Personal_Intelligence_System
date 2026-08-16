@@ -10,6 +10,7 @@ interface WorkspaceManagerProps {
   setStats: (stats: any) => void;
   isScanning: boolean;
   setIsScanning: (scanning: boolean) => void;
+  isCollapsed?: boolean;
 }
 
 export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
@@ -21,6 +22,7 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
   setStats,
   isScanning,
   setIsScanning,
+  isCollapsed,
 }) => {
   const [inputPath, setInputPath] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -80,22 +82,46 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
     }
   };
 
+  if (isCollapsed) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center p-2 rounded-xl bg-white/5 border border-white/5 cursor-pointer hover:bg-white/10 transition-all"
+        title={projectId ? `Active: ${projectPath}` : "Workspace Registration"}
+        onClick={() => {
+          if (projectId) handleScan(projectId, projectPath);
+        }}
+      >
+        <Folder
+          size={16}
+          className={projectId ? "text-[var(--accent)]" : "text-txtMuted"}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="asta-sidebar-card flex flex-col gap-4">
       <hr />
       {/* Header */}
-      <div className="flex items-center gap-2 text-txtPrimary">
-        <Folder size={16} style={{ color: "var(--sage)" }} />
-        <span
-          className="font-heading font-semibold"
-          style={{
-            fontSize: 13,
-            color: "var(--txt-primary)",
-            letterSpacing: "0.01em",
-          }}
-        >
-          Workspace
-        </span>
+      <div className="flex items-center justify-between text-txtPrimary">
+        <div className="flex items-center gap-2">
+          <Folder size={16} style={{ color: "var(--sage)" }} />
+          <span
+            className="font-heading font-semibold"
+            style={{
+              fontSize: 13,
+              color: "var(--txt-primary)",
+              letterSpacing: "0.01em",
+            }}
+          >
+            Workspace
+          </span>
+        </div>
+        {projectId && (
+          <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-[var(--accent)]/10 text-[var(--accent)] border border-[var(--accent)]/20 uppercase tracking-widest font-semibold">
+            Active
+          </span>
+        )}
       </div>
 
       {!projectId ? (
@@ -134,50 +160,60 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
         </form>
       ) : (
         /* ── Registered State ── */
-        <div className="flex flex-col gap-4">
-          {/* Active Path */}
+        <div className="flex flex-col gap-3">
+          {/* Active Path Card */}
           <div
-            className="rounded-2xl px-4 py-3"
+            className="rounded-2xl px-3.5 py-2.5 backdrop-blur-md"
             style={{
-              background: "rgba(0, 0, 0, 0.2)",
+              background: "rgba(0, 0, 0, 0.25)",
               border: "1px solid var(--border)",
             }}
           >
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <CheckCircle2 size={12} style={{ color: "var(--success)" }} />
-              <span
-                style={{
-                  fontSize: 10,
-                  color: "var(--txt-muted)",
-                  fontFamily: "JetBrains Mono, monospace",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                }}
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 size={12} style={{ color: "var(--success)" }} />
+                <span
+                  style={{
+                    fontSize: 9.5,
+                    color: "var(--txt-muted)",
+                    fontFamily: "JetBrains Mono, monospace",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                  }}
+                >
+                  Indexed Path
+                </span>
+              </div>
+              <button
+                onClick={() => setProjectId(null)}
+                className="text-[9px] font-mono text-txtMuted hover:text-txtPrimary transition-colors underline cursor-pointer"
+                title="Disconnect & Change Project Path"
               >
-                Active Dir
-              </span>
+                Change Path
+              </button>
             </div>
             <code
-              className="break-all block"
+              className="break-all block truncate"
               style={{
-                fontSize: 11,
+                fontSize: 10.5,
                 color: "var(--sage)",
                 fontFamily: "JetBrains Mono, monospace",
                 lineHeight: 1.4,
               }}
+              title={projectPath}
             >
               {projectPath}
             </code>
           </div>
 
-          {/* Rescan */}
+          {/* Quick Action Re-index */}
           <button
             onClick={() => handleScan(projectId, projectPath)}
             disabled={isScanning}
             className="asta-btn-premium w-full flex items-center justify-center gap-2"
           >
-            <RefreshCw size={14} className={isScanning ? "animate-spin" : ""} />
-            {isScanning ? "Indexing..." : "Rescan Codebase"}
+            <RefreshCw size={13} className={isScanning ? "animate-spin" : ""} />
+            {isScanning ? "Indexing Codebase..." : "Re-Index Workspace"}
           </button>
           {error && (
             <span

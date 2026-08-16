@@ -6,10 +6,15 @@ interface WorkspaceStatsProps {
     total_files?: number;
     total_tokens?: number;
   } | null;
+  isCollapsed?: boolean;
 }
 
-export function WorkspaceStats({ projectId, stats }: WorkspaceStatsProps) {
-  if (!projectId || !stats) return null;
+export function WorkspaceStats({
+  projectId,
+  stats,
+  isCollapsed,
+}: WorkspaceStatsProps) {
+  if (!projectId || !stats || isCollapsed) return null;
 
   const totalFiles = stats.total_files || 0;
   const totalTokens = stats.total_tokens || 0;
@@ -22,10 +27,14 @@ export function WorkspaceStats({ projectId, stats }: WorkspaceStatsProps) {
 
   return (
     <div className="asta-sidebar-card flex flex-col gap-4">
+      <div className="w-full border-t border-dashed border-white/10 my-1" />
       {/* Header */}
       <div className="flex items-center gap-2 text-txtPrimary">
         <Sparkles size={16} style={{ color: "var(--accent-hover)" }} />
-        <span className="font-heading font-semibold" style={{ fontSize: 13, letterSpacing: "0.01em" }}>
+        <span
+          className="font-heading font-semibold"
+          style={{ fontSize: 13, letterSpacing: "0.01em" }}
+        >
           Workspace Stats
         </span>
       </div>
@@ -65,6 +74,7 @@ export function WorkspaceStats({ projectId, stats }: WorkspaceStatsProps) {
           </span>
         </div>
       </div>
+      <div className="w-full border-t border-dashed border-white/10 my-0" />
     </div>
   );
 }
