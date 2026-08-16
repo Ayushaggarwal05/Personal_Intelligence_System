@@ -6,31 +6,33 @@
 
 /* ─── Design Tokens ─────────────────────────────────────────── */
 :root {
-  /* Backgrounds */
-  --bg-app: #131816;
-  --bg-sidebar: #1a211e;
-  --bg-card: #202824;
-  --bg-elevated: #262f2a;
-  --bg-hover: #313b35;
+  /* Backgrounds: Obsidian-Emerald & Dual Floating Panels */
+  --bg-app: #050908;
+  --bg-sidebar: #0a120f;
+  --bg-panel: #0a120f;
+  --bg-card: #0e1814;
+  --bg-elevated: #12201b;
+  --bg-hover: #182a23;
 
   /* Accents */
-  --accent: #4d7c73;
-  --accent-hover: #5d8f85;
-  --sage: #98b6a7;
-  --sage-soft: #cad2ce;
+  --accent: #2d6a5a;
+  --accent-hover: #3a8773;
+  --sage: #88c49e;
+  --sage-soft: #a3d9b8;
 
   /* Text */
   --txt-primary: #f4f6f5;
-  --txt-second: #cad2ce;
-  --txt-muted: #9ca8a3;
-  --txt-disabled: #67736d;
+  --txt-second: #a0b3aa;
+  --txt-muted: #607369;
+  --txt-disabled: #3f4d46;
 
-  /* Borders */
-  --border: rgba(255, 255, 255, 0.05);
-  --border-focus: #5e8c82;
+  /* Borders & Shadows */
+  --border: rgba(45, 106, 90, 0.28);
+  --border-focus: #3a8773;
+  --shadow-subtle: 0 10px 30px rgba(0, 0, 0, 0.5);
 
   /* Status */
-  --success: #7fae8c;
+  --success: #88c49e;
   --warning: #d2b96b;
   --error: #c96f6f;
 
@@ -44,6 +46,12 @@
   color: var(--txt-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Faint Ambient Technical Grid Pattern */
+.asta-grid-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
 /* ─── Reset ─────────────────────────────────────────────────── */
@@ -263,20 +271,25 @@ kbd {
   width: 100%;
   max-width: 48rem;
   margin: 0 auto 1.5rem;
-  background: rgba(22, 30, 26, 0.65);
-  border: 1px solid rgba(143, 186, 166, 0.12);
+  background: rgba(22, 30, 26, 0.85);
+  border: 1.5px solid rgba(93, 143, 133, 0.45);
   border-radius: 28px;
   padding: 6px 6px 6px 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 10px 40px rgba(77, 124, 115, 0.28),
+    0 0 24px rgba(93, 143, 133, 0.22);
   backdrop-filter: blur(16px);
   transition:
-    border-color 220ms ease,
-    box-shadow 220ms ease;
+    border-color 250ms ease,
+    box-shadow 250ms ease;
 }
 
-.asta-chat-input-container:focus-within {
-  border-color: rgba(143, 186, 166, 0.35);
-  box-shadow: 0 8px 32px rgba(96, 165, 150, 0.08);
+.asta-chat-input-container:focus-within,
+.asta-chat-input-container:hover {
+  border-color: rgba(143, 186, 166, 0.7);
+  box-shadow:
+    0 14px 50px rgba(77, 124, 115, 0.42),
+    0 0 36px rgba(93, 143, 133, 0.38);
 }
 
 /* ─── Premium Cards & Inner Layout ───────────────────────────── */

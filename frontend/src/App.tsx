@@ -5,7 +5,14 @@ import { ChatWindow } from "./components/ChatWindow";
 import { DiagramViewer } from "./components/DiagramViewer";
 import { SettingsDrawer } from "./components/SettingsDrawer";
 import { WorkspaceStats } from "./components/WorkspaceStats";
-import { Layers, Settings, MessageSquare, Folder, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Layers,
+  Settings,
+  MessageSquare,
+  Folder,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { ActivationScreen } from "./components/ActivationScreen";
 
 const TABS = [
@@ -33,22 +40,23 @@ export default function App() {
 
   return (
     <div
-      className="flex h-screen w-screen overflow-hidden"
-      style={{ background: "var(--bg-app)", color: "var(--txt-primary)" }}
+      className="flex h-screen w-screen overflow-hidden p-3 gap-3"
+      style={{ background: "#050908", color: "var(--txt-primary)" }}
     >
       {showActivation && (
         <ActivationScreen onComplete={() => setShowActivation(false)} />
       )}
-      {/* ── Sidebar ───────────────────────────────────────────── */}
+      {/* ── Sidebar Floating Panel ───────────────────────────────────────────── */}
       <aside
-        className="flex flex-col h-screen overflow-hidden flex-shrink-0 sidebar-bg transition-all duration-300 ease-in-out relative z-30"
+        className="flex flex-col h-full overflow-hidden flex-shrink-0 rounded-3xl bg-[#0a120f] border border-[rgba(45,106,90,0.28)] shadow-2xl transition-all duration-300 ease-in-out relative z-30"
         style={{
-          width: isSidebarCollapsed ? 64 : 250,
-          borderRight: "1px solid var(--border)",
+          width: isSidebarCollapsed ? 64 : 260,
         }}
       >
         {/* Logo Lockup & Collapse Toggle */}
-        <div className={`flex items-center ${isSidebarCollapsed ? 'justify-center px-2 py-4' : 'justify-between px-5 pt-6 pb-3'} select-none`}>
+        <div
+          className={`flex items-center ${isSidebarCollapsed ? "justify-center px-2 py-4" : "justify-between px-5 pt-6 pb-3"} select-none`}
+        >
           <div className="flex items-center gap-3 min-w-0">
             {/* Console badge */}
             <div
@@ -59,9 +67,13 @@ export default function App() {
                 height: 36,
                 background:
                   "linear-gradient(135deg, var(--accent) 0%, var(--sage) 100%)",
-                boxShadow: "0 6px 18px rgba(77,124,115,.12)",
+                boxShadow: "0 6px 18px rgba(45,106,90,0.25)",
               }}
-              title={isSidebarCollapsed ? "Expand Sidebar" : "ASTA Engineering Intelligence"}
+              title={
+                isSidebarCollapsed
+                  ? "Expand Sidebar"
+                  : "ASTA Engineering Intelligence"
+              }
             >
               <span
                 className="font-mono font-black leading-none select-none"
@@ -126,7 +138,9 @@ export default function App() {
         )}
 
         {/* Sidebar Body */}
-        <div className={`flex flex-col gap-6 flex-1 ${isSidebarCollapsed ? 'px-2 py-4' : 'px-4 pt-3 pb-6'} overflow-y-auto min-h-0 scrollbar-thin`}>
+        <div
+          className={`flex flex-col gap-6 flex-1 ${isSidebarCollapsed ? "px-2 py-4" : "px-4 pt-3 pb-6"} overflow-y-auto min-h-0 scrollbar-thin`}
+        >
           <WorkspaceManager
             projectId={projectId}
             setProjectId={setProjectId}
@@ -138,13 +152,22 @@ export default function App() {
             setIsScanning={setIsScanning}
             isCollapsed={isSidebarCollapsed}
           />
-          <WorkspaceStats projectId={projectId} stats={stats} isCollapsed={isSidebarCollapsed} />
+          <WorkspaceStats
+            projectId={projectId}
+            stats={stats}
+            isCollapsed={isSidebarCollapsed}
+          />
           <SearchPanel projectId={projectId} isCollapsed={isSidebarCollapsed} />
         </div>
 
         {/* Sidebar Footer */}
-        <div className={`${isSidebarCollapsed ? 'px-2 py-3 justify-center' : 'px-4 py-3 justify-between'} flex items-center border-t border-[var(--border)] mt-auto bg-[rgba(0,0,0,0.15)] select-none`}>
-          <div className="flex items-center gap-2" title="Local Model Connected: Qwen 2.5 3B (8K Context)">
+        <div
+          className={`${isSidebarCollapsed ? "px-2 py-3 justify-center" : "px-4 py-3 justify-between"} flex items-center border-t border-[rgba(45,106,90,0.2)] mt-auto bg-[rgba(0,0,0,0.2)] select-none`}
+        >
+          <div
+            className="flex items-center gap-2"
+            title="Local Model Connected: Qwen 2.5 3B (8K Context)"
+          >
             <span className="flex h-2 w-2 relative flex-shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--success)] opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-[var(--success)]"></span>
@@ -174,56 +197,45 @@ export default function App() {
             )}
           </div>
           {!isSidebarCollapsed && (
-            <span
-              className="font-mono uppercase text-[9px] text-[var(--txt-disabled)]"
-            >
+            <span className="font-mono uppercase text-[9px] text-[var(--txt-disabled)]">
               v1.0
             </span>
           )}
         </div>
       </aside>
 
-      {/* ── Main Area ─────────────────────────────────────────── */}
+      {/* ── Main Area Floating Panel ─────────────────────────────────────────── */}
       <main
-        className="flex flex-col flex-1 h-screen overflow-hidden"
-        style={{ background: "var(--bg-app)" }}
+        className="flex flex-col flex-1 h-full overflow-hidden rounded-3xl bg-[#0a120f] border border-[rgba(45,106,90,0.28)] shadow-2xl"
       >
         <header
           className="flex items-center justify-between px-6 py-4 flex-shrink-0 select-none"
-          style={{
-            background: "var(--bg-sidebar)",
-            borderBottom: "1px solid var(--border)",
-          }}
         >
-          {/* Active Context Title */}
+          {/* Active Context Title (Un-boxed Floating Text) */}
           <div className="min-w-0">
             {activeTab === "explain" && (
               <>
                 <h2
-                  className="font-heading font-bold tracking-tight text-txtPrimary animate-fade-in"
-                  style={{ fontSize: 13 }}
+                  className="font-heading font-bold tracking-tight text-txtPrimary animate-fade-in text-sm"
                 >
                   Architecture &amp; Memory Explainer
                 </h2>
                 <p
-                  className="font-mono text-txtMuted mt-0.5 animate-fade-in"
-                  style={{ fontSize: 9, letterSpacing: "0.02em" }}
+                  className="font-mono text-txtMuted mt-0.5 animate-fade-in text-[9.5px]"
                 >
-                  Design trade-offs · Implementation details · Interview prep
+                  Design trade-offs <span className="text-[var(--accent-hover)]">•</span> Implementation details <span className="text-[var(--accent-hover)]">•</span> Interview prep
                 </p>
               </>
             )}
             {activeTab === "diagrams" && (
               <>
                 <h2
-                  className="font-heading font-bold tracking-tight text-txtPrimary animate-fade-in"
-                  style={{ fontSize: 13 }}
+                  className="font-heading font-bold tracking-tight text-txtPrimary animate-fade-in text-sm"
                 >
                   Architectural Diagram Canvas
                 </h2>
                 <p
-                  className="font-mono text-txtMuted mt-0.5 animate-fade-in"
-                  style={{ fontSize: 9, letterSpacing: "0.02em" }}
+                  className="font-mono text-txtMuted mt-0.5 animate-fade-in text-[9.5px]"
                 >
                   Mermaid.js vector graphs parsed from database definitions
                 </p>
@@ -232,14 +244,12 @@ export default function App() {
             {activeTab === "settings" && (
               <>
                 <h2
-                  className="font-heading font-bold tracking-tight text-txtPrimary animate-fade-in"
-                  style={{ fontSize: 13 }}
+                  className="font-heading font-bold tracking-tight text-txtPrimary animate-fade-in text-sm"
                 >
                   System Configurations
                 </h2>
                 <p
-                  className="font-mono text-txtMuted mt-0.5 animate-fade-in"
-                  style={{ fontSize: 9, letterSpacing: "0.02em" }}
+                  className="font-mono text-txtMuted mt-0.5 animate-fade-in text-[9.5px]"
                 >
                   Configure AI models and workspace settings
                 </p>
@@ -247,8 +257,8 @@ export default function App() {
             )}
           </div>
 
-          {/* Navigation Tab Segment Control */}
-          <div className="flex items-center gap-1 bg-black/25 p-1 rounded-xl border border-white/5 flex-shrink-0">
+          {/* Glowing Navigation Tab Segment Control */}
+          <div className="flex items-center gap-1.5 bg-black/40 p-1.5 rounded-2xl border border-white/5 flex-shrink-0 shadow-lg">
             {TABS.map((tab) => {
               const isActive = activeTab === tab.id;
               const isDisabled = !projectId && tab.id !== "settings";
@@ -257,35 +267,18 @@ export default function App() {
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   disabled={isDisabled}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-heading font-semibold transition-all"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-2xl font-heading font-semibold text-xs transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-[#14241e] text-white border border-[#2d6a5a] shadow-[0_0_18px_rgba(45,106,90,0.4)]"
+                      : "text-txtMuted hover:text-white border border-transparent"
+                  }`}
                   style={{
-                    fontSize: 11,
-                    cursor: isDisabled ? "not-allowed" : "pointer",
                     opacity: isDisabled ? 0.38 : 1,
-                    color: isActive ? "var(--txt-primary)" : "var(--txt-muted)",
-                    background: isActive ? "var(--bg-hover)" : "transparent",
-                    border: "none",
-                    transition: "all 220ms ease",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isDisabled && !isActive) {
-                      (e.currentTarget as HTMLButtonElement).style.color =
-                        "var(--txt-second)";
-                      (e.currentTarget as HTMLButtonElement).style.background =
-                        "rgba(255,255,255,0.03)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isDisabled && !isActive) {
-                      (e.currentTarget as HTMLButtonElement).style.color =
-                        "var(--txt-muted)";
-                      (e.currentTarget as HTMLButtonElement).style.background =
-                        "transparent";
-                    }
+                    cursor: isDisabled ? "not-allowed" : "pointer",
                   }}
                 >
                   <span
-                    style={{ color: isActive ? "var(--accent)" : "inherit" }}
+                    style={{ color: isActive ? "var(--sage)" : "inherit" }}
                   >
                     {tab.icon}
                   </span>
@@ -296,10 +289,15 @@ export default function App() {
           </div>
         </header>
 
-        {/* Active Content */}
-        <section className="flex-1 overflow-hidden relative">
+        {/* Active Content Viewport */}
+        <section className="flex-1 overflow-hidden relative border-t border-[rgba(77,124,115,0.12)]">
           {activeTab === "explain" && <ChatWindow projectId={projectId} />}
-          {activeTab === "diagrams" && <DiagramViewer projectId={projectId} onOpenSettings={() => setActiveTab("settings")} />}
+          {activeTab === "diagrams" && (
+            <DiagramViewer
+              projectId={projectId}
+              onOpenSettings={() => setActiveTab("settings")}
+            />
+          )}
           {activeTab === "settings" && <SettingsDrawer projectId={projectId} />}
 
           {isScanning && (

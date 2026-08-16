@@ -108,7 +108,7 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
       </div>
 
       {/* Rendering Viewport */}
-      <div className="flex-1 flex items-center justify-center min-h-[350px] bg-bgCard p-5 overflow-auto border border-white/5 rounded-2xl shadow-xl">
+      <div className="flex-1 flex items-center justify-center min-h-[350px] bg-bgCard asta-grid-bg p-5 overflow-auto border border-white/5 rounded-2xl shadow-xl">
         {!projectId ? (
           <span className="text-txtMuted text-xs font-mono">Register a workspace path to render flow diagrams</span>
         ) : isLoading ? (

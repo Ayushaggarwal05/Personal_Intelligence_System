@@ -32,7 +32,7 @@ class WorkflowEngine:
         query_lower = query.lower().strip("?.,!\"' ")
         
         # 1. Fast heuristic checks for common greetings
-        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta", "yo", "wave"}
+        greetings = {"hi", "hello", "hey", "greetings", "good morning", "good afternoon", "good evening", "sup", "hi asta", "yo", "wave" , "tell me abt urself" , "about yourself", "introduce yourself", "who are you", "how are you"}
         if query_lower in greetings or any(query_lower.startswith(g) for g in ["who are you", "how are you", "introduce yourself"]):
             return {"mode": "casual", "objective": "concept_explain"}
 
@@ -48,12 +48,12 @@ class WorkflowEngine:
             return {"mode": "codebase_explore", "objective": "project_pitch"}
 
         # Architecture discussion
-        arch_kws = {"why react", "why django", "why sqlite", "why fastapi", "trade-off", "tradeoff", "scalability", "alternatives", "design critique", "scale"}
+        arch_kws = {"why react", "why django","why nodejs", "why vite", "why tailwind", "why sqlite", "why fastapi", "trade-off", "tradeoff", "scalability", "alternatives", "design critique", "scale"}
         if any(kw in query_lower for kw in arch_kws):
             return {"mode": "architecture_discuss", "objective": "design_critique"}
 
         # Conceptual general technical
-        tech_kws = {"what is jwt", "what is oauth", "what is rest", "what is clean architecture", "concept of", "definition of", "explain docker"}
+        tech_kws = {"what is jwt", "what is oauth","what is rest api", "what is socket io", "what is clean architecture", "concept of", "definition of", "explain docker"}
         if any(kw in query_lower for kw in tech_kws):
             return {"mode": "general_technical", "objective": "concept_explain"}
 
