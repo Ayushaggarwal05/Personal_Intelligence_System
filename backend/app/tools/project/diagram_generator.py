@@ -34,21 +34,12 @@ class DiagramGenerator:
             try:
                 with httpx.Client(timeout=15.0) as client:
                     res = client.post(url, json=payload)
-                    if res.status_code == 429:
-                        logger.warning("[DiagramGenerator] Gemini API rate limited (429). Serving fallback diagram.")
-                        if db and project_id and diag_type:
-                            return self._generate_deterministic_fallback(db, project_id, diag_type)
-                        raise PEISException("RATE_LIMITED: Gemini API key rate limit exceeded.", status_code=429)
-                    elif res.status_code in {400, 401, 403}:
-                        raise PEISException("INVALID_KEY: Invalid Gemini API key in Settings.", status_code=401)
-                    elif res.status_code != 200:
-                        raise PEISException(f"Gemini API returned status {res.status_code}", status_code=500)
-                    
-                    data = res.json()
-                    text = data["candidates"][0]["content"]["parts"][0]["text"]
-                    return self._clean_mermaid_markup(text)
-            except PEISException:
-                raise
+                    if res.status_code == 200:
+                        data = res.json()
+                        text = data["candidates"][0]["content"]["parts"][0]["text"]
+                        return self._clean_mermaid_markup(text)
+                    else:
+                        logger.warning(f"[DiagramGenerator] Gemini API status {res.status_code}. Trying Groq or fallback.")
             except Exception as e:
                 logger.warning(f"[DiagramGenerator] Gemini API call exception: {e}")
 
@@ -64,25 +55,17 @@ class DiagramGenerator:
             try:
                 with httpx.Client(timeout=15.0) as client:
                     res = client.post(url, headers=headers, json=payload)
-                    if res.status_code == 429:
-                        logger.warning("[DiagramGenerator] Groq API rate limited (429). Serving fallback diagram.")
-                        if db and project_id and diag_type:
-                            return self._generate_deterministic_fallback(db, project_id, diag_type)
-                        raise PEISException("RATE_LIMITED: Groq API key rate limit exceeded.", status_code=429)
-                    elif res.status_code in {401, 403}:
-                        raise PEISException("INVALID_KEY: Invalid Groq API key in Settings.", status_code=401)
-                    elif res.status_code != 200:
-                        raise PEISException(f"Groq API returned status {res.status_code}: {res.text}", status_code=500)
-                    
-                    data = res.json()
-                    text = data["choices"][0]["message"]["content"]
-                    return self._clean_mermaid_markup(text)
-            except PEISException:
-                raise
+                    if res.status_code == 200:
+                        data = res.json()
+                        text = data["choices"][0]["message"]["content"]
+                        return self._clean_mermaid_markup(text)
+                    else:
+                        logger.warning(f"[DiagramGenerator] Groq API status {res.status_code}: {res.text}. Trying fallback.")
             except Exception as e:
                 logger.warning(f"[DiagramGenerator] Groq API call exception: {e}")
 
         if db and project_id and diag_type:
+            logger.info("[DiagramGenerator] Serving clean AST-driven fallback diagram.")
             return self._generate_deterministic_fallback(db, project_id, diag_type)
 
         raise PEISException("NO_API_KEY: No Diagram API Key configured in Settings.", status_code=400)

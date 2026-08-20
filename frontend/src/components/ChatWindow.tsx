@@ -351,6 +351,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const typewriterTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopTypewriter = () => {
+    if (typewriterTimerRef.current) {
+      clearInterval(typewriterTimerRef.current);
+      typewriterTimerRef.current = null;
+    }
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -360,10 +368,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
     const ws = new WebSocket("ws://localhost:8000/api/ws");
     wsRef.current = ws;
     ws.onmessage = () => {};
-    return () => ws.close();
+    return () => {
+      ws.close();
+      stopTypewriter();
+    };
   }, []);
 
   const handleStop = () => {
+    stopTypewriter();
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
@@ -379,7 +391,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
           u[u.length - 1] = {
             role: "assistant",
             content:
-              lastMsg.content + "\n\n⚠️ *[Generation interrupted by user]*",
+              lastMsg.content.replace(/\[EXPLAIN_DONE\]/g, "") + "\n\n⚠️ *[Generation interrupted by user]*",
           };
           return u;
         }
@@ -388,13 +400,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
     });
   };
 
-  /* ── Core streaming fetch ─────────────────────────────── */
+  /* ── Core streaming fetch with smooth Typewriter Pacing Queue ── */
   const streamQuery = async (query: string, history: Message[]) => {
     setIsLoading(true);
+    stopTypewriter();
     setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
+
+    let targetText = "";
+    let currentLength = 0;
+
+    // Smooth typewriter pacing interval (types 3 chars per 15ms ~ 200 chars/sec)
+    typewriterTimerRef.current = setInterval(() => {
+      const cleanTarget = targetText.replace(/\[EXPLAIN_DONE\]/g, "");
+      if (currentLength < cleanTarget.length) {
+        const step = Math.min(3, cleanTarget.length - currentLength);
+        currentLength += step;
+        const visibleSlice = cleanTarget.slice(0, currentLength);
+        setMessages((prev) => {
+          const u = [...prev];
+          if (u.length > 0 && u[u.length - 1].role === "assistant") {
+            u[u.length - 1] = { role: "assistant", content: visibleSlice };
+          }
+          return u;
+        });
+      }
+    }, 15);
 
     try {
       const res = await fetch("http://localhost:8000/api/chat/stream", {
@@ -410,18 +443,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
       if (res.ok && res.body) {
         const reader = res.body.getReader();
         const decoder = new TextDecoder("utf-8");
-        let accumulated = "";
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-          accumulated += decoder.decode(value, { stream: true });
-          setMessages((prev) => {
-            const u = [...prev];
-            u[u.length - 1] = { role: "assistant", content: accumulated };
-            return u;
-          });
+          targetText += decoder.decode(value, { stream: true });
         }
+
+        // Wait smoothly until typewriter finishes typing targetText
+        await new Promise<void>((resolve) => {
+          const checkDone = setInterval(() => {
+            const cleanTarget = targetText.replace(/\[EXPLAIN_DONE\]/g, "");
+            if (currentLength >= cleanTarget.length || !abortControllerRef.current) {
+              clearInterval(checkDone);
+              resolve();
+            }
+          }, 30);
+        });
       } else {
+        stopTypewriter();
         setMessages((prev) => [
           ...prev.slice(0, -1),
           {
@@ -432,6 +471,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
         ]);
       }
     } catch (err: any) {
+      stopTypewriter();
       if (err.name === "AbortError") {
         return;
       }
@@ -444,6 +484,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ projectId }) => {
         },
       ]);
     } finally {
+      stopTypewriter();
+      const finalClean = targetText.replace(/\[EXPLAIN_DONE\]/g, "");
+      if (finalClean.trim()) {
+        setMessages((prev) => {
+          const u = [...prev];
+          if (u.length > 0 && u[u.length - 1].role === "assistant") {
+            u[u.length - 1] = { role: "assistant", content: finalClean };
+          }
+          return u;
+        });
+      }
       setIsLoading(false);
       abortControllerRef.current = null;
     }

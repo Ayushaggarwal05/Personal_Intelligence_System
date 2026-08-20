@@ -17,12 +17,16 @@ def _generate_or_handle_error(generator_func, db: Session, project_id: str):
         markup = generator_func(db, project_id)
         return {"mermaid_code": markup, "error": False}
     except PEISException as e:
-        code = "NO_API_KEY"
-        if "RATE_LIMITED" in str(e.message):
+        msg = str(e.message)
+        if "NO_API_KEY" in msg:
+            code = "NO_API_KEY"
+        elif "RATE_LIMITED" in msg:
             code = "RATE_LIMITED"
-        elif "INVALID_KEY" in str(e.message):
+        elif "INVALID_KEY" in msg:
             code = "INVALID_KEY"
-        return {"error": True, "code": code, "detail": str(e.message), "status_code": e.status_code}
+        else:
+            code = "GENERATION_FAILED"
+        return {"error": True, "code": code, "detail": msg, "status_code": e.status_code}
     except Exception as e:
         return {"error": True, "code": "GENERATION_FAILED", "detail": str(e), "status_code": 500}
 
