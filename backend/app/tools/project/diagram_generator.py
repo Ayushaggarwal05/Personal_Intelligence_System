@@ -71,17 +71,36 @@ class DiagramGenerator:
         raise PEISException("NO_API_KEY: No Diagram API Key configured in Settings.", status_code=400)
 
     def _clean_mermaid_markup(self, text: str) -> str:
-        """Strips markdown code blocks and sanitizes common LLM Mermaid syntax errors."""
+        """Strips markdown code blocks, conversational text, and sanitizes common LLM Mermaid syntax errors."""
         text = text.strip()
+        
+        # 1. Extract block inside markdown backticks if present
         match = re.search(r"```(?:mermaid)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
         if match:
             text = match.group(1).strip()
 
-        # Fix invalid LLM arrow syntax: e.g. -->|METHOD|> into valid -->|METHOD|
+        # 2. Strip leading/trailing backticks or markdown markers
+        text = re.sub(r"^`+(?:mermaid)?\s*", "", text, flags=re.IGNORECASE)
+        text = re.sub(r"\s*`+$", "", text)
+
+        # 3. Trim pre-conversational text (find first valid diagram header)
+        lines = text.split("\n")
+        valid_keywords = {"graph", "erdiagram", "sequencediagram", "flowchart", "classdiagram"}
+        start_idx = -1
+        for idx, line in enumerate(lines):
+            clean_l = line.strip().lower()
+            if any(clean_l.startswith(kw) for kw in valid_keywords):
+                start_idx = idx
+                break
+
+        if start_idx != -1:
+            text = "\n".join(lines[start_idx:])
+
+        # 4. Fix invalid LLM arrow syntax: e.g. -->|METHOD|> into valid -->|METHOD|
         text = re.sub(r"-->\|([^|\n]+)\|>", r"-->|\1|", text)
         text = re.sub(r"->\|([^|\n]+)\|>", r"->|\1|", text)
 
-        return text
+        return text.strip()
 
     def _generate_deterministic_fallback(self, db: Session, project_id: str, diag_type: str) -> str:
         """AST-driven fallback producing 100% valid Mermaid syntax directly from SQLite symbols."""

@@ -62,14 +62,36 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
   useEffect(() => {
     if (!mermaidCode || !containerRef.current || errorState) return;
 
-    containerRef.current.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center">${mermaidCode}</div>`;
-    try {
-      mermaid.run({
-        nodes: containerRef.current.querySelectorAll('.mermaid')
-      });
-    } catch (err) {
-      console.error("Mermaid compile error:", err);
-    }
+    let isMounted = true;
+
+    const renderDiagram = async () => {
+      try {
+        containerRef.current!.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center">${mermaidCode}</div>`;
+        
+        // Pre-validate diagram syntax before rendering
+        await mermaid.parse(mermaidCode);
+        
+        if (isMounted) {
+          await mermaid.run({
+            nodes: containerRef.current!.querySelectorAll('.mermaid')
+          });
+        }
+      } catch (err: any) {
+        console.error("Mermaid syntax validation error:", err);
+        if (isMounted) {
+          setErrorState({
+            code: 'SYNTAX_ERROR',
+            detail: 'The AI model returned diagram code with invalid syntax. Click below to retry diagram generation.'
+          });
+        }
+      }
+    };
+
+    renderDiagram();
+
+    return () => {
+      isMounted = false;
+    };
   }, [mermaidCode, errorState]);
 
   return (
