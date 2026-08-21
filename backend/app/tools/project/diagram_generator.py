@@ -48,7 +48,7 @@ class DiagramGenerator:
             url = "https://api.groq.com/openai/v1/chat/completions"
             headers = {"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"}
             payload = {
-                "model": "llama-3.1-8b-instant",
+                "model": "qwen/qwen3.6-27b",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.0
             }

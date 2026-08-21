@@ -26,20 +26,25 @@ def parse_python_file(file_path: str) -> List[Dict[str, Any]]:
         prefix = "async def" if isinstance(node, ast.AsyncFunctionDef) else "def"
         return f"{prefix} {node.name}({', '.join(args)})"
 
-    # Utility helper to check if node has a router/app decorator (FastAPI routes)
+    # Utility helper to check if node has a router/app decorator (FastAPI/Flask/DRF routes)
     def check_is_route(node: Any) -> bool:
         for decorator in node.decorator_list:
-            # Check for standard Call decorators like @app.get("/...")
+            # Check for standard Call decorators like @app.get("/...") or DRF @api_view(['GET'])
             if isinstance(decorator, ast.Call):
                 func = decorator.func
                 # Handles node decorator like app.get or router.post
                 if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
                     if func.attr in {"get", "post", "put", "delete", "patch", "options", "head"}:
                         return True
+                # DRF @api_view(['GET', 'POST']) or @action(detail=True, methods=['post'])
+                elif isinstance(func, ast.Name) and func.id in {"api_view", "action"}:
+                    return True
             # Check for Name decorators (less common for routes but possible)
             elif isinstance(decorator, ast.Attribute):
                 if decorator.attr in {"get", "post", "put", "delete", "patch"}:
                     return True
+            elif isinstance(decorator, ast.Name) and decorator.id in {"api_view", "action"}:
+                return True
         return False
 
     # Utility helper to check if class is a Database Model or Schema

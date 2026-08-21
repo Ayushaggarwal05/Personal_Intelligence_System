@@ -134,6 +134,41 @@ def run_incremental_index(db: Session, project_path: str) -> dict:
             
     db.commit()
 
+    # 5. Django Framework Post-Scan Pass (Resolves multi-folder urls.py routes)
+    try:
+        from app.tools.parsers.django_parser import extract_django_routes_for_project
+        django_routes = extract_django_routes_for_project(project_path)
+        if django_routes:
+            logger.info(f"Resolved {len(django_routes)} Django multi-folder routes. Syncing with database...")
+            for d_route in django_routes:
+                rel_p_slash = os.path.relpath(d_route["file_path"], project_path).replace("\\", "/")
+                rel_p_bslash = os.path.relpath(d_route["file_path"], project_path).replace("/", "\\")
+                target_file = db.query(File).filter(
+                    File.project_id == project.id,
+                    (File.relative_path == rel_p_slash) | (File.relative_path == rel_p_bslash)
+                ).first()
+                if target_file:
+                    # Check if symbol already exists
+                    existing_sym = db.query(Symbol).filter(
+                        Symbol.file_id == target_file.id,
+                        Symbol.signature == d_route["signature"]
+                    ).first()
+                    if not existing_sym:
+                        db_sym = Symbol(
+                            id=str(uuid.uuid4()),
+                            file_id=target_file.id,
+                            name=d_route["name"],
+                            type="route",
+                            signature=d_route["signature"],
+                            docstring=d_route["docstring"],
+                            line_start=d_route["line_start"],
+                            line_end=d_route["line_end"]
+                        )
+                        db.add(db_sym)
+            db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to run Django route resolution pass: {e}")
+
     return {
         "project_id": project.id,
         "project_name": project.name,

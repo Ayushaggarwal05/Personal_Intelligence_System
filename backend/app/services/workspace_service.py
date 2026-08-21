@@ -67,6 +67,13 @@ class WorkspaceService(BaseService):
         registered = self.project_repo.create(project)
         logger.info(f"Registered new workspace project: {project_name} [ID: {project_id}]")
         
+        # Trigger initial indexing scan to populate files & symbols immediately
+        try:
+            logger.info(f"Running initial indexing scan for workspace: {workspace_path}")
+            run_incremental_index(self.db, workspace_path)
+        except Exception as e:
+            logger.error(f"Failed initial indexing scan for {workspace_path}: {e}")
+
         # Start background monitoring
         workspace_watcher.register_workspace(workspace_path)
         return registered
