@@ -89,6 +89,10 @@ class WorkspaceService(BaseService):
         # Stop background watcher
         workspace_watcher.unregister_workspace(workspace_path)
         
+        # Clear diagram cache
+        from app.tools.project.diagram_generator import diagram_generator
+        diagram_generator.clear_cache(project_id)
+
         # Deleting project cascades SQLite records (files, symbols, interviews)
         logger.info(f"Deleting project workspace record: {project.name} (Path: {workspace_path})")
         return self.project_repo.delete(project_id)
@@ -100,6 +104,8 @@ class WorkspaceService(BaseService):
             raise ProjectNotFoundException(project_id)
             
         logger.info(f"Triggering refresh index scan for: {project.name}")
+        from app.tools.project.diagram_generator import diagram_generator
+        diagram_generator.clear_cache(project_id)
         results = run_incremental_index(self.db, project.path)
         return results
 

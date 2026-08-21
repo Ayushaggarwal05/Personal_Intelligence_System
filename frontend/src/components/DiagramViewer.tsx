@@ -26,7 +26,8 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
   const [diagType, setDiagType] = useState<'er' | 'api-flow' | 'sequence'>('sequence');
   const [mermaidCode, setMermaidCode] = useState<string>('');
   const [errorState, setErrorState] = useState<{ code: string; detail: string } | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [refreshCount, setRefreshCount] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -38,7 +39,8 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
       setMermaidCode('');
 
       try {
-        const res = await fetch(`http://localhost:8000/api/diagrams/${diagType}/${projectId}`);
+        const forceQuery = refreshCount > 0 ? '?force_refresh=true' : '';
+        const res = await fetch(`http://localhost:8000/api/diagrams/${diagType}/${projectId}${forceQuery}`);
         if (res.ok) {
           const data = await res.json();
           if (data.error) {
@@ -57,31 +59,30 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
     };
 
     fetchDiagram();
-  }, [projectId, diagType]);
+  }, [projectId, diagType, refreshCount]);
 
   useEffect(() => {
     if (!mermaidCode || !containerRef.current || errorState) return;
 
     let isMounted = true;
+    const renderId = `mermaid-canvas-${Date.now()}`;
 
     const renderDiagram = async () => {
       try {
-        containerRef.current!.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center">${mermaidCode}</div>`;
-        
-        // Pre-validate diagram syntax before rendering
-        await mermaid.parse(mermaidCode);
-        
-        if (isMounted) {
-          await mermaid.run({
-            nodes: containerRef.current!.querySelectorAll('.mermaid')
-          });
+        const { svg } = await mermaid.render(renderId, mermaidCode);
+        if (isMounted && containerRef.current) {
+          containerRef.current.innerHTML = svg;
         }
       } catch (err: any) {
-        console.error("Mermaid syntax validation error:", err);
+        console.error("Mermaid rendering error:", err);
+        const tempElement = document.getElementById(renderId);
+        if (tempElement) {
+          tempElement.remove();
+        }
         if (isMounted) {
           setErrorState({
             code: 'SYNTAX_ERROR',
-            detail: 'The AI model returned diagram code with invalid syntax. Click below to retry diagram generation.'
+            detail: 'The generated diagram could not be rendered into SVG. Click below to retry diagram generation.'
           });
         }
       }
@@ -91,6 +92,10 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
 
     return () => {
       isMounted = false;
+      const tempElement = document.getElementById(renderId);
+      if (tempElement) {
+        tempElement.remove();
+      }
     };
   }, [mermaidCode, errorState]);
 
@@ -157,7 +162,11 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
                   ? 'API Rate Limit Exceeded'
                   : errorState.code === 'INVALID_KEY'
                   ? 'Invalid API Key'
-                  : 'Diagram Generation API Key Required'}
+                  : errorState.code === 'SYNTAX_ERROR'
+                  ? 'Diagram Syntax Error'
+                  : errorState.code === 'NO_API_KEY'
+                  ? 'Diagram Generation API Key Required'
+                  : 'Diagram Generation Failed'}
               </h4>
               <p className="text-xs text-txtMuted leading-relaxed font-sans">
                 {errorState.code === 'NO_API_KEY'
@@ -166,7 +175,20 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
               </p>
             </div>
 
-            {onOpenSettings && (
+            {errorState.code === 'SYNTAX_ERROR' || errorState.code === 'GENERATION_FAILED' ? (
+              <button
+                onClick={() => {
+                  setErrorState(null);
+                  setMermaidCode('');
+                  setRefreshCount((prev) => prev + 1);
+                }}
+                className="glow-btn py-2 px-4 text-xs flex items-center gap-2 cursor-pointer font-heading font-semibold mt-1"
+              >
+                <Activity size={13} />
+                Retry Diagram Generation
+                <ArrowRight size={13} />
+              </button>
+            ) : onOpenSettings ? (
               <button
                 onClick={onOpenSettings}
                 className="glow-btn py-2 px-4 text-xs flex items-center gap-2 cursor-pointer font-heading font-semibold mt-1"
@@ -175,7 +197,7 @@ export const DiagramViewer: React.FC<DiagramViewerProps> = ({ projectId, onOpenS
                 Configure API Key in Settings
                 <ArrowRight size={13} />
               </button>
-            )}
+            ) : null}
           </div>
         ) : (
           <div ref={containerRef} className="w-full h-full flex items-center justify-center overflow-auto text-center mermaid-viewport" />
